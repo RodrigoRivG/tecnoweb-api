@@ -69,6 +69,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Business Timezone
+    |--------------------------------------------------------------------------
+    |
+    | Fechas de calendario del negocio (apertura y cierre de convocatorias,
+    | edad mínima). Los TIMESTAMPTZ se siguen guardando y devolviendo en UTC.
+    |
+    */
+
+    'zona_horaria_negocio' => env('APP_ZONA_HORARIA_NEGOCIO', 'America/La_Paz'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

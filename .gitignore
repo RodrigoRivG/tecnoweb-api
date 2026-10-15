@@ -3,6 +3,7 @@
 .env
 .env.backup
 .env.production
+.env.testing
 .phpactor.json
 .phpunit.result.cache
 /.codex
@@ -25,3 +26,13 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+desktop.ini
+
+# Cobertura de tests
+/coverage
+
+# Agentes de IA: archivos generados por Laravel Boost (se regeneran con `php artisan boost:update`)
+# Se versionan boost.json, .mcp.json, CLAUDE.md y AGENTS.md para que el equipo los regenere igual
+/.claude/skills
+/.claude/settings.local.json
+/.junie
