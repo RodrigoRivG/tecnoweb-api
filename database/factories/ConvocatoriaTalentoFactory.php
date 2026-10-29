@@ -27,12 +27,16 @@ class ConvocatoriaTalentoFactory extends Factory
      */
     public const ETAPAS_FLUJO_A = [
         'INSCRIPCION' => ['prueba' => null, 'peso' => '0'],
+        'EVALUACION_TECNICA' => ['prueba' => Prueba::PPA, 'peso' => '20'],
         'REQUISITOS' => ['prueba' => null, 'peso' => '0'],
-        'EVALUACION_TECNICA' => ['prueba' => Prueba::PPA, 'peso' => '40'],
-        'ANALISIS_CV' => ['prueba' => 'CV_ANALISIS', 'peso' => '30'],
-        'ENTREVISTA' => ['prueba' => 'ENTREVISTA', 'peso' => '30'],
+        'EVALUACION_PSICOLOGICA' => ['prueba' => 'TEST_PERSONALIDAD', 'peso' => '25'],
+        'HABILIDADES_BLANDAS' => ['prueba' => 'TEST_HABILIDADES_BLANDAS', 'peso' => '20'],
+        'ANALISIS_CV' => ['prueba' => 'CV_ANALISIS', 'peso' => '15'],
+        'ENTREVISTA' => ['prueba' => 'ENTREVISTA', 'peso' => '20'],
         'SELECCION' => ['prueba' => null, 'peso' => '0'],
     ];
+
+
 
     /**
      * Documentos que exige la convocatoria (todos obligatorios).

@@ -42,12 +42,16 @@ class PostulacionTest extends TestCase
             ->assertJsonPath('data.convocatoria.proceso_id', $proceso->id)
             ->assertJsonPath('data.etapas', [
                 ['codigo' => 'INSCRIPCION', 'nombre' => 'Inscripción', 'orden' => 1, 'estado' => 'APROBADA'],
-                ['codigo' => 'REQUISITOS', 'nombre' => 'Requisitos', 'orden' => 2, 'estado' => 'PENDIENTE'],
-                ['codigo' => 'EVALUACION_TECNICA', 'nombre' => 'Evaluación técnica', 'orden' => 3, 'estado' => 'APROBADA'],
-                ['codigo' => 'ANALISIS_CV', 'nombre' => 'Análisis de CV', 'orden' => 4, 'estado' => 'BLOQUEADA'],
-                ['codigo' => 'ENTREVISTA', 'nombre' => 'Entrevista', 'orden' => 5, 'estado' => 'BLOQUEADA'],
-                ['codigo' => 'SELECCION', 'nombre' => 'Selección', 'orden' => 6, 'estado' => 'BLOQUEADA'],
+                ['codigo' => 'EVALUACION_TECNICA', 'nombre' => 'Evaluación técnica', 'orden' => 2, 'estado' => 'APROBADA'],
+                ['codigo' => 'REQUISITOS', 'nombre' => 'Requisitos', 'orden' => 3, 'estado' => 'PENDIENTE'],
+                ['codigo' => 'EVALUACION_PSICOLOGICA', 'nombre' => 'Evaluación psicológica', 'orden' => 4, 'estado' => 'BLOQUEADA'],
+                ['codigo' => 'HABILIDADES_BLANDAS', 'nombre' => 'Medición de habilidades blandas', 'orden' => 5, 'estado' => 'BLOQUEADA'],
+                ['codigo' => 'ANALISIS_CV', 'nombre' => 'Análisis de CV', 'orden' => 6, 'estado' => 'BLOQUEADA'],
+                ['codigo' => 'ENTREVISTA', 'nombre' => 'Entrevista', 'orden' => 7, 'estado' => 'BLOQUEADA'],
+                ['codigo' => 'SELECCION', 'nombre' => 'Selección', 'orden' => 8, 'estado' => 'BLOQUEADA'],
             ])
+
+
             ->assertJsonCount(4, 'data.requisitos')
             ->assertJsonPath('data.requisitos_completos', false);
         $this->assertMatchesRegularExpression('/^T\d{2}-[A-HJ-NP-Z2-9]{6}$/', $respuesta->json('data.codigo'));
@@ -182,8 +186,9 @@ class PostulacionTest extends TestCase
         $detalleAjeno = $this->actingAs($usuario, 'sanctum')->getJson(route('egresado.postulaciones.show', $ajena));
 
         $lista->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $propia->id)->assertJsonMissingPath('data.0.etapas');
-        $detalle->assertOk()->assertJsonPath('data.id', $propia->id)->assertJsonCount(6, 'data.etapas');
+        $detalle->assertOk()->assertJsonPath('data.id', $propia->id)->assertJsonCount(8, 'data.etapas');
         $detalleAjeno->assertNotFound();
+
     }
 
     public function test_otro_rol_no_puede_usar_las_rutas_del_egresado(): void
