@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AutenticacionController;
 use App\Http\Controllers\Api\V1\Egresado\DocumentoController;
 use App\Http\Controllers\Api\V1\Egresado\PostulacionController;
+use App\Http\Controllers\Api\V1\Evaluador\RevisionRequisitosController;
 use App\Http\Controllers\Api\V1\Publico\BienvenidaController;
 use App\Http\Controllers\Api\V1\RegistroEgresadoController;
 use Illuminate\Support\Facades\Route;
@@ -28,6 +29,12 @@ Route::prefix('v1')->group(function () {
             Route::get('postulaciones/{postulacion}', [PostulacionController::class, 'show'])->whereNumber('postulacion')->name('postulaciones.show');
             Route::post('postulaciones/{postulacion}/documentos', [DocumentoController::class, 'store'])->whereNumber('postulacion')->name('documentos.store');
             Route::get('documentos/{documento}/archivo', [DocumentoController::class, 'archivo'])->whereNumber('documento')->name('documentos.archivo');
+        });
+
+        Route::prefix('evaluador')->middleware('rol:ADMIN,AYUDANTE')->name('evaluador.')->group(function () {
+            Route::post('postulaciones/{postulacion}/aprobar-requisitos', [RevisionRequisitosController::class, 'aprobar'])
+                ->whereNumber('postulacion')
+                ->name('postulaciones.aprobar-requisitos');
         });
     });
 });

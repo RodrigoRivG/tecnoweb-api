@@ -7,6 +7,20 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+Artisan::command('talento:aprobar-requisitos {id=1}', function (int $id, \App\Actions\Evaluacion\AprobarRequisitosPostulacion $aprobar) {
+    $admin = \App\Models\Usuario::whereHas('rol', fn ($q) => $q->where('codigo', \App\Enums\CodigoRol::Admin->value))->firstOrFail();
+    $postulacion = \App\Models\Postulacion::findOrFail($id);
+
+    $this->info("Aprobando requisitos para la postulación #{$postulacion->id} ({$postulacion->codigo}) como {$admin->correo}...");
+    $aprobar->handle($admin, $postulacion);
+
+    $this->info("¡Requisitos aprobados exitosamente!");
+    $etapas = $postulacion->etapas()->with('procesoEtapa.etapa')->get()->sortBy(fn ($e) => $e->procesoEtapa->orden);
+    foreach ($etapas as $e) {
+        $this->line("  Etapa {$e->procesoEtapa->orden}: {$e->procesoEtapa->etapa->nombre} -> {$e->estado->value}");
+    }
+});
+
 Artisan::command('talento:sincronizar-etapas', function () {
     $etapasCatalogo = \App\Models\Etapa::query()->pluck('id', 'codigo');
     $pruebasCatalogo = \App\Models\Prueba::query()->pluck('id', 'codigo');
