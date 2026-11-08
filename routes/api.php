@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Admin\CarreraController;
+use App\Http\Controllers\Api\V1\Admin\FacultadController;
 use App\Http\Controllers\Api\V1\AutenticacionController;
 use App\Http\Controllers\Api\V1\Egresado\DocumentoController;
 use App\Http\Controllers\Api\V1\Egresado\PostulacionController;
@@ -35,6 +37,16 @@ Route::prefix('v1')->group(function () {
             Route::post('postulaciones/{postulacion}/aprobar-requisitos', [RevisionRequisitosController::class, 'aprobar'])
                 ->whereNumber('postulacion')
                 ->name('postulaciones.aprobar-requisitos');
+        });
+
+        Route::prefix('admin')->middleware('rol:ADMIN')->name('admin.')->group(function () {
+            Route::apiResource('facultades', FacultadController::class)
+                ->parameters(['facultades' => 'facultad'])
+                ->whereNumber('facultad');
+
+            Route::apiResource('carreras', CarreraController::class)
+                ->parameters(['carreras' => 'carrera'])
+                ->whereNumber('carrera');
         });
     });
 });
