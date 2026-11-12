@@ -22,6 +22,11 @@ return [
         'ck_persona_apellido' => ['campo' => 'apellido_paterno', 'mensaje' => 'Indica al menos un apellido.'],
         'ck_egresado_ppa' => ['campo' => 'ppa', 'mensaje' => 'El PPA debe estar entre 0 y 100.'],
         'ck_egresado_anio' => ['campo' => 'anio_egreso', 'mensaje' => 'El año de egreso no es válido.'],
+        'uq_facultad_nombre' => ['campo' => 'nombre', 'mensaje' => 'Ya existe una facultad con ese nombre.'],
+        'uq_facultad_sigla' => ['campo' => 'sigla', 'mensaje' => 'Ya existe una facultad con esa sigla.'],
+        'ck_facultad_ppa' => ['campo' => 'ppa_minimo', 'mensaje' => 'El PPA mínimo debe estar entre 0 y 100.'],
+        'uq_carrera_facultad_nombre' => ['campo' => 'nombre', 'mensaje' => 'Ya existe una carrera con ese nombre en la facultad seleccionada.'],
+        'uq_area_carrera_nombre' => ['campo' => 'areas', 'mensaje' => 'El área de preferencia está duplicada en la carrera.'],
     ],
 
     'generico' => [

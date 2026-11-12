@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Admin\CarreraController;
+use App\Http\Controllers\Api\V1\Admin\FacultadController;
 use App\Http\Controllers\Api\V1\AutenticacionController;
 use App\Http\Controllers\Api\V1\Egresado\DocumentoController;
 use App\Http\Controllers\Api\V1\Egresado\EvaluacionController;
@@ -109,6 +111,16 @@ Route::prefix('v1')->group(function () {
             Route::get('postulaciones/{postulacion}/resultado-final', [SeleccionController::class, 'resultadoPostulante'])
                 ->whereNumber('postulacion')
                 ->name('postulaciones.resultado-final-evaluador');
+        });
+
+        Route::prefix('admin')->middleware('rol:ADMIN')->name('admin.')->group(function () {
+            Route::apiResource('facultades', FacultadController::class)
+                ->parameters(['facultades' => 'facultad'])
+                ->whereNumber('facultad');
+
+            Route::apiResource('carreras', CarreraController::class)
+                ->parameters(['carreras' => 'carrera'])
+                ->whereNumber('carrera');
         });
     });
 });
