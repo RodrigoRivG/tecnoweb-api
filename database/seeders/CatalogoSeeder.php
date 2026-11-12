@@ -69,6 +69,8 @@ class CatalogoSeeder extends Seeder
                 ['codigo' => 'TEST_INTELIGENCIA', 'nombre' => 'Test de inteligencia', 'tipo' => 'TEST', 'descripcion' => 'Obligatorio; matrices de figuras'],
                 ['codigo' => 'TEST_INTELIGENCIA_EMOCIONAL', 'nombre' => 'Test de inteligencia emocional', 'tipo' => 'TEST', 'descripcion' => 'Obligatorio'],
                 ['codigo' => 'TEST_LECTURA_COMPRENSIVA', 'nombre' => 'Test de lectura comprensiva', 'tipo' => 'TEST', 'descripcion' => null],
+                ['codigo' => 'TEST_PURDUE_NO_VERBAL', 'nombre' => 'Test no verbal de Purdue (Forma B)', 'tipo' => 'TEST', 'descripcion' => 'Aptitud espacial y mecánica para profesiones técnicas y de ingeniería'],
+                ['codigo' => 'TEST_HERRAMIENTAS', 'nombre' => 'Test de reconocimiento de herramientas', 'tipo' => 'TEST', 'descripcion' => 'Conocimiento práctico y aplicación técnica de herramientas y piezas industriales'],
                 ['codigo' => 'TEST_APTITUD_NUMERICA', 'nombre' => 'Test de aptitud numérica', 'tipo' => 'TEST', 'descripcion' => null],
                 ['codigo' => 'TEST_HABILIDADES_BLANDAS', 'nombre' => 'Test de habilidades blandas', 'tipo' => 'TEST', 'descripcion' => 'Genera el gráfico de habilidades'],
                 ['codigo' => 'ENTREVISTA', 'nombre' => 'Entrevista', 'tipo' => 'RUBRICA', 'descripcion' => 'Formulario completado por el junior de la carrera'],
@@ -79,6 +81,16 @@ class CatalogoSeeder extends Seeder
                 collect(['Formación', 'Experiencia', 'Habilidades', 'Presentación'])
                     ->map(fn (string $nombre, int $indice): array => [
                         'prueba_id' => $pruebaCv, 'nombre' => $nombre, 'puntaje_maximo' => '10.00', 'orden' => $indice + 1,
+                    ])->all(),
+                ['prueba_id', 'nombre'],
+                ['puntaje_maximo', 'orden'],
+            );
+
+            $pruebaEntrevista = Prueba::query()->where('codigo', 'ENTREVISTA')->valueOrFail('id');
+            DB::table('rubrica_criterio')->upsert(
+                collect(['Dominio Técnico', 'Desenvolvimiento y Comunicación', 'Motivación e Interés', 'Solución de Casos'])
+                    ->map(fn (string $nombre, int $indice): array => [
+                        'prueba_id' => $pruebaEntrevista, 'nombre' => $nombre, 'puntaje_maximo' => '10.00', 'orden' => $indice + 1,
                     ])->all(),
                 ['prueba_id', 'nombre'],
                 ['puntaje_maximo', 'orden'],

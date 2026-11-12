@@ -22,6 +22,7 @@ class PostulacionResource extends JsonResource
      * @var list<string>
      */
     public const RELACIONES_DETALLE = [
+        'persona.usuario',
         'proceso.convocatoria.carrera.facultad',
         'proceso.tiposDocumento',
         'etapas.procesoEtapa.etapa',
@@ -43,6 +44,11 @@ class PostulacionResource extends JsonResource
             'codigo' => $this->codigo,
             'estado' => $this->estado,
             'creada_en' => $this->created_at,
+            'postulante' => [
+                'nombre_completo' => $this->persona?->nombre_completo,
+                'ci' => $this->persona?->ci,
+                'correo' => $this->persona?->usuario?->correo,
+            ],
             'convocatoria' => [
                 'proceso_id' => $this->proceso->id,
                 'nombre' => $this->proceso->nombre,

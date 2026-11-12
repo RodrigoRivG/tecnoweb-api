@@ -65,4 +65,16 @@ class Persona extends Model
     {
         return $this->hasMany(Postulacion::class);
     }
+
+    public function getNombreCompletoAttribute(): string
+    {
+        return trim("{$this->nombres} {$this->apellido_paterno} {$this->apellido_materno}");
+    }
+
+    public function getCiAttribute(): string
+    {
+        $comp = $this->ci_complemento ? "-{$this->ci_complemento}" : '';
+        $exp = $this->ci_expedido instanceof DepartamentoCi ? " {$this->ci_expedido->value}" : ($this->ci_expedido ? " {$this->ci_expedido}" : '');
+        return "{$this->ci_numero}{$comp}{$exp}";
+    }
 }

@@ -76,7 +76,7 @@ class SubirDocumentoPostulacion
                     'es_vigente' => true,
                 ]);
 
-                $this->enviarARevisionSiEstaCompleta($postulacion, $etapaRequisitos);
+                $this->enviarARevisionSiEstaCompleta($usuario, $postulacion, $etapaRequisitos);
 
                 return $documento->load(['tipoDocumento', 'archivo']);
             });
@@ -107,12 +107,21 @@ class SubirDocumentoPostulacion
             ->first();
     }
 
-    private function enviarARevisionSiEstaCompleta(Postulacion $postulacion, ?PostulacionEtapa $etapaRequisitos): void
+    private function enviarARevisionSiEstaCompleta(Usuario $usuario, Postulacion $postulacion, ?PostulacionEtapa $etapaRequisitos): void
     {
-        if ($etapaRequisitos?->estado !== EstadoEtapa::Pendiente || self::obligatoriosFaltantes($postulacion) !== []) {
+        if (! in_array($etapaRequisitos?->estado, [EstadoEtapa::Pendiente, EstadoEtapa::EnRevision], true)
+            || self::obligatoriosFaltantes($postulacion) !== []) {
             return;
         }
 
-        $etapaRequisitos->update(['estado' => EstadoEtapa::EnRevision, 'iniciada_en' => now()]);
+        // Si la etapa de requisitos está configurada como AUTOMÁTICA en el catálogo institucional,
+        // se aprueba automáticamente al completarse la carga de todos los documentos obligatorios
+        $esAutomatica = $etapaRequisitos->procesoEtapa?->etapa?->ejecucion === \App\Enums\EjecucionEtapa::Automatica;
+
+        if ($esAutomatica) {
+            app(\App\Actions\Evaluacion\AprobarRequisitosPostulacion::class)->handle($usuario, $postulacion);
+        } else {
+            $etapaRequisitos->update(['estado' => EstadoEtapa::EnRevision, 'iniciada_en' => now()]);
+        }
     }
 }

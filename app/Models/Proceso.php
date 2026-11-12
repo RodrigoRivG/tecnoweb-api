@@ -82,6 +82,14 @@ class Proceso extends Model
     }
 
     /**
+     * @return HasMany<RankingResultado, $this>
+     */
+    public function rankings(): HasMany
+    {
+        return $this->hasMany(RankingResultado::class)->orderBy('posicion');
+    }
+
+    /**
      * @return BelongsTo<Usuario, $this>
      */
     public function creadoPor(): BelongsTo

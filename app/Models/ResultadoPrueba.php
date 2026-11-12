@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * puntaje_normalizado lo calcula la BD (columna generada).
@@ -50,5 +51,21 @@ class ResultadoPrueba extends Model
     public function procesoPrueba(): BelongsTo
     {
         return $this->belongsTo(ProcesoPrueba::class);
+    }
+
+    /**
+     * @return HasMany<ResultadoDimension, $this>
+     */
+    public function dimensiones(): HasMany
+    {
+        return $this->hasMany(ResultadoDimension::class, 'resultado_prueba_id');
+    }
+
+    /**
+     * @return HasMany<CalificacionCriterio, $this>
+     */
+    public function calificacionesCriterios(): HasMany
+    {
+        return $this->hasMany(CalificacionCriterio::class, 'resultado_prueba_id');
     }
 }

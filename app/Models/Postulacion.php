@@ -85,4 +85,20 @@ class Postulacion extends Model
     {
         return $this->hasMany(ResultadoPrueba::class);
     }
+
+    /**
+     * @return HasMany<IntentoPrueba, $this>
+     */
+    public function intentos(): HasMany
+    {
+        return $this->hasMany(IntentoPrueba::class);
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne<RankingResultado, $this>
+     */
+    public function ranking(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(RankingResultado::class);
+    }
 }

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Egresado\PostularRequest;
 use App\Http\Resources\ConvocatoriaResource;
 use App\Http\Resources\PostulacionResource;
+use App\Models\Postulacion;
 use App\Models\Proceso;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -61,10 +62,17 @@ class PostulacionController extends Controller
 
     public function show(Request $request, int $postulacion): PostulacionResource
     {
-        $postulacion = $request->user()->persona->postulaciones()
-            ->with(PostulacionResource::RELACIONES_DETALLE)
-            ->findOrFail($postulacion);
+        $usuario = $request->user();
+        $esEvaluador = in_array($usuario->rol?->codigo, ['ADMIN', 'AYUDANTE'], true);
 
-        return new PostulacionResource($postulacion);
+        $query = Postulacion::query()->with(PostulacionResource::RELACIONES_DETALLE);
+
+        if (! $esEvaluador) {
+            $query->where('persona_id', $usuario->persona?->id);
+        }
+
+        $modelo = $query->findOrFail($postulacion);
+
+        return new PostulacionResource($modelo);
     }
 }

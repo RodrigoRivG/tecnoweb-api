@@ -31,14 +31,19 @@ class DocumentoController extends Controller
      */
     public function archivo(Request $request, int $documento): StreamedResponse
     {
-        $personaId = $request->user()->persona->id;
+        $usuario = $request->user();
+        $esEvaluador = in_array($usuario->rol?->codigo, ['ADMIN', 'AYUDANTE'], true);
 
-        $documento = DocumentoPostulacion::query()
-            ->whereHas('postulacion', fn (Builder $postulacion) => $postulacion->where('persona_id', $personaId))
-            ->with('archivo')
-            ->findOrFail($documento);
+        $query = DocumentoPostulacion::query()->with('archivo');
+
+        if (! $esEvaluador) {
+            $personaId = $usuario->persona?->id;
+            $query->whereHas('postulacion', fn (Builder $postulacion) => $postulacion->where('persona_id', $personaId));
+        }
+
+        $documentoModelo = $query->findOrFail($documento);
 
         return Storage::disk(SubirDocumentoPostulacion::DISCO)
-            ->download($documento->archivo->clave_almacenamiento, $documento->archivo->nombre_original);
+            ->download($documentoModelo->archivo->clave_almacenamiento, $documentoModelo->archivo->nombre_original);
     }
 }

@@ -6,6 +6,7 @@ use App\Enums\TipoPrueba;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Table('prueba')]
 #[Fillable(['codigo', 'nombre', 'tipo', 'descripcion', 'es_plantilla', 'activa'])]
@@ -25,5 +26,13 @@ class Prueba extends Model
             'es_plantilla' => 'boolean',
             'activa' => 'boolean',
         ];
+    }
+
+    /**
+     * @return HasMany<Pregunta, $this>
+     */
+    public function preguntas(): HasMany
+    {
+        return $this->hasMany(Pregunta::class, 'prueba_id')->orderBy('orden');
     }
 }
