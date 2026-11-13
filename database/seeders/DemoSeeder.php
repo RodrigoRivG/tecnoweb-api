@@ -34,29 +34,7 @@ class DemoSeeder extends Seeder
             ['rol_id' => Rol::idDe(CodigoRol::Admin), 'password_hash' => Hash::make('admin12345'), 'estado' => EstadoUsuario::Activo],
         );
 
-        $catalogo = [
-            ['nombre' => 'Facultad de Ingeniería en Ciencias de la Computación y Telecomunicaciones', 'sigla' => 'FICCT', 'ppa_minimo' => '51.00',
-                'carreras' => ['Ingeniería Informática' => [], 'Ingeniería de Sistemas' => [], 'Ingeniería en Redes y Telecomunicaciones' => []]],
-            ['nombre' => 'Facultad de Ciencias Jurídicas, Políticas, Sociales y Relaciones Internacionales', 'sigla' => 'FCJPS', 'ppa_minimo' => '60.00',
-                'carreras' => ['Derecho' => ['Penal', 'Civil', 'Laboral']]],
-            ['nombre' => 'Facultad de Ciencias Económicas, Administrativas y Financieras', 'sigla' => 'FCEAF', 'ppa_minimo' => '51.00',
-                'carreras' => ['Contaduría Pública' => [], 'Administración de Empresas' => []]],
-        ];
-
-        foreach ($catalogo as $datosFacultad) {
-            $facultad = Facultad::query()->updateOrCreate(
-                ['sigla' => $datosFacultad['sigla']],
-                ['nombre' => $datosFacultad['nombre'], 'ppa_minimo' => $datosFacultad['ppa_minimo']],
-            );
-
-            foreach ($datosFacultad['carreras'] as $nombreCarrera => $areas) {
-                $carrera = Carrera::query()->firstOrCreate(['facultad_id' => $facultad->id, 'nombre' => $nombreCarrera]);
-
-                foreach ($areas as $area) {
-                    $carrera->areas()->firstOrCreate(['nombre' => $area]);
-                }
-            }
-        }
+        $this->call(UagrmFacultadesCarrerasSeeder::class);
 
         $gestion = (int) today()->format('Y');
 

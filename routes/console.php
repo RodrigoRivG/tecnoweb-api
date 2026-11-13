@@ -15,6 +15,14 @@ Artisan::command('talento:generar-estudiantes-prueba', function () {
     $this->info("¡Estudiantes de prueba generados exitosamente con notas altas hasta la etapa de CV!");
 });
 
+Artisan::command('talento:sembrar-uagrm', function () {
+    require_once database_path('seeders/UagrmFacultadesCarrerasSeeder.php');
+    $seeder = new \Database\Seeders\UagrmFacultadesCarrerasSeeder();
+    $seeder->setCommand($this);
+    $seeder->run();
+    $this->info("¡Facultades y carreras oficiales de la UAGRM registradas exitosamente!");
+});
+
 Artisan::command('talento:aprobar-requisitos {id=1}', function (int $id, \App\Actions\Evaluacion\AprobarRequisitosPostulacion $aprobar) {
     $admin = \App\Models\Usuario::whereHas('rol', fn ($q) => $q->where('codigo', \App\Enums\CodigoRol::Admin->value))->firstOrFail();
     $postulacion = \App\Models\Postulacion::findOrFail($id);
