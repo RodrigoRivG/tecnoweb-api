@@ -132,6 +132,7 @@ Route::prefix('v1')->group(function () {
 
             // Banco de Preguntas y Pruebas Psicotécnicas
             Route::get('banco-preguntas/catalogo', [PreguntaAdminController::class, 'catalogoPruebas'])->name('banco-preguntas.catalogo');
+            Route::post('preguntas/imagen', [PreguntaAdminController::class, 'subirImagen'])->name('preguntas.imagen');
             Route::apiResource('preguntas', PreguntaAdminController::class)
                 ->parameters(['preguntas' => 'pregunta'])
                 ->whereNumber('pregunta');
