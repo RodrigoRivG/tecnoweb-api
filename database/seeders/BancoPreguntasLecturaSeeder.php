@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 class BancoPreguntasLecturaSeeder extends Seeder
 {
     /**
-     * Banco oficial de preguntas del Test de Lectura Comprensiva (Tests de Aptitud Profesional).
+     * Banco oficial de preguntas del Test de Habilidades y Aptitudes Específicas (Comprensión y Análisis de Textos Técnicos).
      * Fuente: Escáner_20261111 (2) a (5).png y Plantilla de corrección oficial Escáner_20261111.png.
      */
     private const PREGUNTAS = [
@@ -271,7 +271,7 @@ class BancoPreguntasLecturaSeeder extends Seeder
             }
         });
 
-        $this->command?->info('¡20 preguntas oficiales de Lectura Comprensiva (100% del test) registradas con éxito!');
+        $this->command?->info('¡20 preguntas oficiales de Habilidades y Aptitudes Específicas (100% del test) registradas con éxito!');
     }
 }
 

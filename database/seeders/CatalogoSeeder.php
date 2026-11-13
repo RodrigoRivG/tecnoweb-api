@@ -68,7 +68,7 @@ class CatalogoSeeder extends Seeder
                 ['codigo' => 'TEST_PERSONALIDAD', 'nombre' => 'Test de personalidad', 'tipo' => 'TEST', 'descripcion' => 'Obligatorio; genera el gráfico de perfil'],
                 ['codigo' => 'TEST_INTELIGENCIA', 'nombre' => 'Test de inteligencia', 'tipo' => 'TEST', 'descripcion' => 'Obligatorio; matrices de figuras'],
                 ['codigo' => 'TEST_INTELIGENCIA_EMOCIONAL', 'nombre' => 'Test de inteligencia emocional', 'tipo' => 'TEST', 'descripcion' => 'Obligatorio'],
-                ['codigo' => 'TEST_LECTURA_COMPRENSIVA', 'nombre' => 'Test de lectura comprensiva', 'tipo' => 'TEST', 'descripcion' => null],
+                ['codigo' => 'TEST_LECTURA_COMPRENSIVA', 'nombre' => 'Test de habilidades y aptitudes específicas', 'tipo' => 'TEST', 'descripcion' => 'Evaluación de habilidades y aptitudes profesionales específicas (análisis de textos técnicos, precisión y criterio profesional)'],
                 ['codigo' => 'TEST_PURDUE_NO_VERBAL', 'nombre' => 'Test no verbal de Purdue (Forma B)', 'tipo' => 'TEST', 'descripcion' => 'Aptitud espacial y mecánica para profesiones técnicas y de ingeniería'],
                 ['codigo' => 'TEST_HERRAMIENTAS', 'nombre' => 'Test de reconocimiento de herramientas', 'tipo' => 'TEST', 'descripcion' => 'Conocimiento práctico y aplicación técnica de herramientas y piezas industriales'],
                 ['codigo' => 'TEST_APTITUD_NUMERICA', 'nombre' => 'Test de aptitud numérica', 'tipo' => 'TEST', 'descripcion' => null],
