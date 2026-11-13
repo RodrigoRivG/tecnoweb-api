@@ -25,3 +25,4 @@ class Permiso extends Model
             ->withTimestamps();
     }
 }
+

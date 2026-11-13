@@ -32,3 +32,4 @@ class VerificarPermiso
         return $next($request);
     }
 }
+

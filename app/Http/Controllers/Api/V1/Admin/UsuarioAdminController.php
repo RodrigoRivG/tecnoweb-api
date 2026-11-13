@@ -73,13 +73,13 @@ class UsuarioAdminController extends Controller
     public function store(Request $request): JsonResponse
     {
         $datos = $request->validate([
-            'correo' => ['required', 'string', 'email', 'max:190', 'unique:talento.usuario,correo'],
+            'correo' => ['required', 'string', 'email', 'max:190', Rule::unique(Usuario::class, 'correo')],
             'password' => ['required', 'string', 'min:6'],
-            'rol_id' => ['required', 'integer', 'exists:talento.rol,id'],
+            'rol_id' => ['required', 'integer', Rule::exists(Rol::class, 'id')],
             'nombres' => ['required', 'string', 'max:80'],
             'primer_apellido' => ['required', 'string', 'max:80'],
             'segundo_apellido' => ['nullable', 'string', 'max:80'],
-            'ci' => ['required', 'string', 'max:20', 'unique:talento.persona,ci'],
+            'ci' => ['required', 'string', 'max:20', Rule::unique(Persona::class, 'ci')],
             'telefono' => ['nullable', 'string', 'max:30'],
         ]);
 
@@ -119,7 +119,7 @@ class UsuarioAdminController extends Controller
         $usuario = Usuario::findOrFail($id);
 
         $datos = $request->validate([
-            'rol_id' => ['sometimes', 'integer', 'exists:talento.rol,id'],
+            'rol_id' => ['sometimes', 'integer', Rule::exists(Rol::class, 'id')],
             'estado' => ['sometimes', Rule::in(['ACTIVO', 'BLOQUEADO', 'INACTIVO'])],
         ]);
 
@@ -181,7 +181,7 @@ class UsuarioAdminController extends Controller
 
         $datos = $request->validate([
             'permisos_ids' => ['required', 'array'],
-            'permisos_ids.*' => ['integer', 'exists:talento.permiso,id'],
+            'permisos_ids.*' => ['integer', Rule::exists(Permiso::class, 'id')],
         ]);
 
         $rol->permisos()->sync($datos['permisos_ids']);
@@ -196,3 +196,4 @@ class UsuarioAdminController extends Controller
         ]);
     }
 }
+

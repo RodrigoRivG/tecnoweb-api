@@ -28,6 +28,12 @@ class PermisoSeeder extends Seeder
                 'modulo' => 'ACADEMICO',
                 'descripcion' => 'Crear, editar, activar y eliminar carreras universitarias.',
             ],
+            [
+                'codigo' => 'convocatorias.gestionar',
+                'nombre' => 'Gestionar Convocatorias',
+                'modulo' => 'ACADEMICO',
+                'descripcion' => 'Crear, configurar, abrir, pausar o cerrar convocatorias de talento.',
+            ],
 
             // Módulo Evaluaciones y Postulaciones
             [
@@ -118,3 +124,4 @@ class PermisoSeeder extends Seeder
         });
     }
 }
+

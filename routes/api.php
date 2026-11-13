@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Admin\CarreraController;
+use App\Http\Controllers\Api\V1\Admin\ConvocatoriaAdminController;
 use App\Http\Controllers\Api\V1\Admin\FacultadController;
 use App\Http\Controllers\Api\V1\Admin\UsuarioAdminController;
 use App\Http\Controllers\Api\V1\AutenticacionController;
@@ -122,6 +123,11 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('carreras', CarreraController::class)
                 ->parameters(['carreras' => 'carrera'])
                 ->whereNumber('carrera');
+
+            // Gestión de Convocatorias
+            Route::apiResource('convocatorias', ConvocatoriaAdminController::class)
+                ->parameters(['convocatorias' => 'proceso'])
+                ->whereNumber('proceso');
 
             // Gestión de Usuarios y Permisos (RBAC)
             Route::get('usuarios', [UsuarioAdminController::class, 'index'])->name('usuarios.index');
