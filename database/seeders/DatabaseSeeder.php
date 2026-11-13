@@ -22,7 +22,6 @@ class DatabaseSeeder extends Seeder
         $this->call(BancoPreguntasEmocionalSeeder::class);
         $this->call(BancoPreguntasLecturaSeeder::class);
         $this->call(BancoPreguntasPurdueSeeder::class);
-        $this->call(BancoPreguntasHerramientasSeeder::class);
         $this->call(BancoPreguntasHabilidadesBlandasSeeder::class);
 
         if (! App::isProduction()) {

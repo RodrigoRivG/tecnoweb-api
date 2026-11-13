@@ -216,56 +216,6 @@ class EvaluacionController extends Controller
         6  => ['rango' => 'Deficiente', 'percentil' => 10, 'interpretacion' => 'Comprensión lectora significativamente por debajo del promedio universitario.'],
     ];
 
-    /**
-     * Baremos psicométricos para el Test de Reconocimiento de Herramientas (31 ítems).
-     */
-    private const BAREMOS_HERRAMIENTAS = [
-        31 => ['rango' => 'Sobresaliente / Nivel Experto', 'percentil' => 99, 'interpretacion' => 'Dominio exhaustivo y preciso de herramientas técnicas, mecánicas y constructivas.'],
-        30 => ['rango' => 'Sobresaliente / Nivel Experto', 'percentil' => 99, 'interpretacion' => 'Excepcional conocimiento y discernimiento de aplicación práctica de instrumental.'],
-        29 => ['rango' => 'Muy Superior', 'percentil' => 96, 'interpretacion' => 'Excelente identificación de herramientas y piezas industriales especializadas.'],
-        28 => ['rango' => 'Muy Superior', 'percentil' => 95, 'interpretacion' => 'Alta destreza y rapidez en la selección de herramientas para tareas complejas.'],
-        27 => ['rango' => 'Muy Superior', 'percentil' => 92, 'interpretacion' => 'Nivel muy avanzado de criterio técnico en instrumentación.'],
-        26 => ['rango' => 'Superior', 'percentil' => 88, 'interpretacion' => 'Sólido conocimiento de herramientas y técnicas de trabajo en taller y obra.'],
-        25 => ['rango' => 'Superior', 'percentil' => 85, 'interpretacion' => 'Buen criterio técnico y reconocimiento seguro de utilería mecánica.'],
-        24 => ['rango' => 'Superior', 'percentil' => 82, 'interpretacion' => 'Aptitud técnica superior a la media en identificación de equipos.'],
-        23 => ['rango' => 'Superior al Término Medio', 'percentil' => 78, 'interpretacion' => 'Buen dominio conceptual de herramientas y sus propósitos operativos.'],
-        22 => ['rango' => 'Superior al Término Medio', 'percentil' => 74, 'interpretacion' => 'Capacidad competente en selección de instrumentos de trabajo.'],
-        21 => ['rango' => 'Término Medio Alto', 'percentil' => 70, 'interpretacion' => 'Rendimiento adecuado con mínimos errores en herramientas específicas.'],
-        20 => ['rango' => 'Término Medio', 'percentil' => 64, 'interpretacion' => 'Conocimiento representativo del estándar universitario y técnico.'],
-        19 => ['rango' => 'Término Medio', 'percentil' => 60, 'interpretacion' => 'Identificación satisfactoria de herramientas generales.'],
-        18 => ['rango' => 'Término Medio', 'percentil' => 55, 'interpretacion' => 'Manejo aceptable de conceptos instrumentales básicos.'],
-        17 => ['rango' => 'Término Medio', 'percentil' => 50, 'interpretacion' => 'Nivel promedio en pruebas de reconocimiento práctico.'],
-        16 => ['rango' => 'Término Medio Bajo', 'percentil' => 45, 'interpretacion' => 'Conocimiento funcional limitado a herramientas de uso cotidiano.'],
-        15 => ['rango' => 'Término Medio Bajo', 'percentil' => 40, 'interpretacion' => 'Dificultad en herramientas de albañilería o forja especializada.'],
-        14 => ['rango' => 'Término Medio Bajo', 'percentil' => 35, 'interpretacion' => 'Familiaridad elemental con herramientas de taller.'],
-        13 => ['rango' => 'Inferior al Término Medio', 'percentil' => 30, 'interpretacion' => 'Rendimiento por debajo de la media para aspirantes técnicos.'],
-        12 => ['rango' => 'Inferior al Término Medio', 'percentil' => 25, 'interpretacion' => 'Dificultad apreciable en diferenciación de piezas de trabajo.'],
-        11 => ['rango' => 'Bajo', 'percentil' => 20, 'interpretacion' => 'Bajo conocimiento de instrumentación técnica.'],
-        10 => ['rango' => 'Bajo', 'percentil' => 15, 'interpretacion' => 'Conocimiento deficiente de herramientas mecánicas.'],
-    ];
-
-    /**
-     * Calcula el diagnóstico psicométrico de Reconocimiento de Herramientas.
-     */
-    private function diagnosticoHerramientas(float $puntajeBruto, float $puntajeMaximo): array
-    {
-        $aciertos = (int) round($puntajeBruto);
-        $aciertosClamped = max(0, min(31, $aciertos));
-        $baremo = self::BAREMOS_HERRAMIENTAS[$aciertosClamped] ?? [
-            'rango' => 'Muy Bajo / Deficiente',
-            'percentil' => 5,
-            'interpretacion' => 'Conocimiento muy limitado de herramientas técnicas y piezas industriales.',
-        ];
-
-        return [
-            'aciertos' => $aciertos,
-            'total' => (int) $puntajeMaximo,
-            'porcentaje' => round(($aciertos / max(1, $puntajeMaximo)) * 100, 1),
-            'rango_cualitativo' => $baremo['rango'],
-            'percentil' => $baremo['percentil'],
-            'interpretacion' => $baremo['interpretacion'],
-        ];
-    }
 
     /**
      * Calcula el diagnóstico psicométrico de lectura comprensiva.
@@ -538,7 +488,6 @@ class EvaluacionController extends Controller
         $diagnosticoEmocional = null;
         $diagnosticoLectura = null;
         $diagnosticoPurdue = null;
-        $diagnosticoHerramientas = null;
         $diagnosticoHabilidadesBlandas = null;
 
         if ($ultimoResultado) {
@@ -553,8 +502,6 @@ class EvaluacionController extends Controller
                 $diagnosticoLectura = $this->diagnosticoLecturaComprensiva((float) $ultimoResultado->puntaje_bruto, (float) $ultimoResultado->puntaje_maximo);
             } elseif ($prueba->codigo === 'TEST_PURDUE_NO_VERBAL') {
                 $diagnosticoPurdue = $this->diagnosticoPurdue((float) $ultimoResultado->puntaje_bruto, (float) $ultimoResultado->puntaje_maximo);
-            } elseif ($prueba->codigo === 'TEST_HERRAMIENTAS') {
-                $diagnosticoHerramientas = $this->diagnosticoHerramientas((float) $ultimoResultado->puntaje_bruto, (float) $ultimoResultado->puntaje_maximo);
             } elseif ($prueba->codigo === 'TEST_HABILIDADES_BLANDAS') {
                 $intentoFinalizado = IntentoPrueba::find($ultimoResultado->intento_id);
                 if ($intentoFinalizado) {
@@ -602,7 +549,6 @@ class EvaluacionController extends Controller
                     'diagnostico_emocional' => $diagnosticoEmocional,
                     'diagnostico_lectura' => $diagnosticoLectura,
                     'diagnostico_purdue' => $diagnosticoPurdue,
-                    'diagnostico_herramientas' => $diagnosticoHerramientas,
                     'diagnostico_habilidades_blandas' => $diagnosticoHabilidadesBlandas,
                     'perfil_dimensiones' => $ultimoResultado->dimensiones->sortBy('dimension.orden')->map(fn ($d) => [
                         'id' => $d->dimension_id,
@@ -768,7 +714,6 @@ class EvaluacionController extends Controller
         $diagnosticoEmocional = null;
         $diagnosticoLectura = null;
         $diagnosticoPurdue = null;
-        $diagnosticoHerramientas = null;
         $diagnosticoHabilidadesBlandas = null;
 
         $codigoPrueba = $intento->procesoPrueba?->prueba?->codigo;
@@ -781,8 +726,6 @@ class EvaluacionController extends Controller
             $diagnosticoLectura = $this->diagnosticoLecturaComprensiva((float) $resultado->puntaje_bruto, (float) $resultado->puntaje_maximo);
         } elseif ($codigoPrueba === 'TEST_PURDUE_NO_VERBAL') {
             $diagnosticoPurdue = $this->diagnosticoPurdue((float) $resultado->puntaje_bruto, (float) $resultado->puntaje_maximo);
-        } elseif ($codigoPrueba === 'TEST_HERRAMIENTAS') {
-            $diagnosticoHerramientas = $this->diagnosticoHerramientas((float) $resultado->puntaje_bruto, (float) $resultado->puntaje_maximo);
         } elseif ($codigoPrueba === 'TEST_HABILIDADES_BLANDAS') {
             $diagnosticoHabilidadesBlandas = $this->diagnosticoHabilidadesBlandas($intento);
         }
@@ -799,7 +742,6 @@ class EvaluacionController extends Controller
                 'diagnostico_emocional' => $diagnosticoEmocional,
                 'diagnostico_lectura' => $diagnosticoLectura,
                 'diagnostico_purdue' => $diagnosticoPurdue,
-                'diagnostico_herramientas' => $diagnosticoHerramientas,
                 'diagnostico_habilidades_blandas' => $diagnosticoHabilidadesBlandas,
                 'perfil_dimensiones' => $resultado->dimensiones->sortBy('dimension.orden')->map(fn ($d) => [
                     'id' => $d->dimension_id,

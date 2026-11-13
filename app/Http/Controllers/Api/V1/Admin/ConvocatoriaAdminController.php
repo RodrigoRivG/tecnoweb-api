@@ -301,7 +301,6 @@ class ConvocatoriaAdminController extends Controller
                         ['codigo' => 'TEST_INTELIGENCIA_EMOCIONAL', 'peso' => 7.00, 'umbral_origen' => UmbralOrigen::Fijo],
                         ['codigo' => 'TEST_LECTURA_COMPRENSIVA', 'peso' => 5.00, 'umbral_origen' => UmbralOrigen::Fijo],
                         ['codigo' => 'TEST_PURDUE_NO_VERBAL', 'peso' => 5.00, 'umbral_origen' => UmbralOrigen::Fijo],
-                        ['codigo' => 'TEST_HERRAMIENTAS', 'peso' => 5.00, 'umbral_origen' => UmbralOrigen::Fijo],
                     ],
                 ],
                 'HABILIDADES_BLANDAS' => [
