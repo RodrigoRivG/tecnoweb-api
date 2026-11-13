@@ -43,5 +43,13 @@ class Pregunta extends Model
     {
         return $this->hasMany(OpcionPregunta::class, 'pregunta_id')->orderBy('etiqueta');
     }
+
+    /**
+     * @return HasMany<RespuestaIntento, $this>
+     */
+    public function respuestas(): HasMany
+    {
+        return $this->hasMany(RespuestaIntento::class, 'pregunta_id');
+    }
 }
 

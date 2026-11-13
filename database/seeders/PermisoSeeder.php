@@ -61,6 +61,12 @@ class PermisoSeeder extends Seeder
                 'descripcion' => 'Evaluar oralmente con la rúbrica institucional de 40 pts la Etapa 7.',
             ],
             [
+                'codigo' => 'preguntas.gestionar',
+                'nombre' => 'Gestionar Banco de Preguntas',
+                'modulo' => 'EVALUACIONES',
+                'descripcion' => 'Crear, editar, configurar opciones y puntajes de preguntas en pruebas psicotécnicas.',
+            ],
+            [
                 'codigo' => 'ranking.adjudicar',
                 'nombre' => 'Adjudicar y Publicar Ranking',
                 'modulo' => 'EVALUACIONES',

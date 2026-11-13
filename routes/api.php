@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\Admin\CarreraController;
 use App\Http\Controllers\Api\V1\Admin\ConvocatoriaAdminController;
 use App\Http\Controllers\Api\V1\Admin\FacultadController;
+use App\Http\Controllers\Api\V1\Admin\PreguntaAdminController;
 use App\Http\Controllers\Api\V1\Admin\UsuarioAdminController;
 use App\Http\Controllers\Api\V1\AutenticacionController;
 use App\Http\Controllers\Api\V1\Egresado\DocumentoController;
@@ -128,6 +129,12 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('convocatorias', ConvocatoriaAdminController::class)
                 ->parameters(['convocatorias' => 'proceso'])
                 ->whereNumber('proceso');
+
+            // Banco de Preguntas y Pruebas Psicotécnicas
+            Route::get('banco-preguntas/catalogo', [PreguntaAdminController::class, 'catalogoPruebas'])->name('banco-preguntas.catalogo');
+            Route::apiResource('preguntas', PreguntaAdminController::class)
+                ->parameters(['preguntas' => 'pregunta'])
+                ->whereNumber('pregunta');
 
             // Gestión de Usuarios y Permisos (RBAC)
             Route::get('usuarios', [UsuarioAdminController::class, 'index'])->name('usuarios.index');
