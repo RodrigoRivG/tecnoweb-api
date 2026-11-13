@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\VerificarPermiso;
 use App\Http\Middleware\VerificarRol;
 use App\Support\ErroresBaseDatos;
 use Illuminate\Database\QueryException;
@@ -18,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'rol' => VerificarRol::class,
+            'permiso' => VerificarPermiso::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

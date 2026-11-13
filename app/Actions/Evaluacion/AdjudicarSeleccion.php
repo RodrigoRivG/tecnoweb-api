@@ -71,19 +71,20 @@ class AdjudicarSeleccion
                         ]);
                         $adjudicados[] = $postulacion->id;
                     } else {
+                        // Solo evaluar reprobación si la postulación realmente alcanzó la etapa de selección
                         if ($etapaSeleccion && $etapaSeleccion->estado !== EstadoEtapa::Bloqueada) {
                             $etapaSeleccion->update([
                                 'estado' => EstadoEtapa::Reprobada,
                                 'finalizada_en' => $ahora,
                             ]);
+
+                            if ($postulacion->estado === EstadoPostulacion::EnProceso) {
+                                $postulacion->update([
+                                    'estado' => EstadoPostulacion::NoAprobada,
+                                ]);
+                            }
+                            $noAdjudicados[] = $postulacion->id;
                         }
-                        // Si ya venía en proceso y no fue seleccionado
-                        if ($postulacion->estado === EstadoPostulacion::EnProceso) {
-                            $postulacion->update([
-                                'estado' => EstadoPostulacion::NoAprobada,
-                            ]);
-                        }
-                        $noAdjudicados[] = $postulacion->id;
                     }
                 }
 

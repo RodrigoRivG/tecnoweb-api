@@ -76,4 +76,26 @@ class Usuario extends Authenticatable
     {
         return in_array($this->rol->codigo, array_map(fn (CodigoRol $rol): string => $rol->value, $roles), true);
     }
+
+    public function tienePermiso(string ...$permisos): bool
+    {
+        // El administrador del sistema siempre cuenta con todos los permisos
+        if ($this->rol?->codigo === 'ADMIN') {
+            return true;
+        }
+
+        if (! $this->relationLoaded('rol.permisos')) {
+            $this->load('rol.permisos');
+        }
+
+        $codigosAsignados = $this->rol?->permisos?->pluck('codigo')->all() ?? [];
+
+        foreach ($permisos as $permiso) {
+            if (in_array($permiso, $codigosAsignados, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

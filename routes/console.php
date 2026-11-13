@@ -15,6 +15,14 @@ Artisan::command('talento:generar-estudiantes-prueba', function () {
     $this->info("¡Estudiantes de prueba generados exitosamente con notas altas hasta la etapa de CV!");
 });
 
+Artisan::command('talento:sembrar-permisos', function () {
+    require_once database_path('seeders/PermisoSeeder.php');
+    $seeder = new \Database\Seeders\PermisoSeeder();
+    $seeder->setCommand($this);
+    $seeder->run();
+    $this->info("¡Catálogo de permisos y asignación de roles (RBAC) sembrado exitosamente!");
+});
+
 Artisan::command('talento:sembrar-uagrm', function () {
     require_once database_path('seeders/UagrmFacultadesCarrerasSeeder.php');
     $seeder = new \Database\Seeders\UagrmFacultadesCarrerasSeeder();

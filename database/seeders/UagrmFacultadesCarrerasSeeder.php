@@ -254,3 +254,4 @@ class UagrmFacultadesCarrerasSeeder extends Seeder
         });
     }
 }
+

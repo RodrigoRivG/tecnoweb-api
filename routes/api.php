@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\Admin\CarreraController;
 use App\Http\Controllers\Api\V1\Admin\FacultadController;
+use App\Http\Controllers\Api\V1\Admin\UsuarioAdminController;
 use App\Http\Controllers\Api\V1\AutenticacionController;
 use App\Http\Controllers\Api\V1\Egresado\DocumentoController;
 use App\Http\Controllers\Api\V1\Egresado\EvaluacionController;
@@ -121,6 +122,13 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('carreras', CarreraController::class)
                 ->parameters(['carreras' => 'carrera'])
                 ->whereNumber('carrera');
+
+            // Gestión de Usuarios y Permisos (RBAC)
+            Route::get('usuarios', [UsuarioAdminController::class, 'index'])->name('usuarios.index');
+            Route::post('usuarios', [UsuarioAdminController::class, 'store'])->name('usuarios.store');
+            Route::put('usuarios/{usuario}', [UsuarioAdminController::class, 'update'])->whereNumber('usuario')->name('usuarios.update');
+            Route::get('roles-permisos', [UsuarioAdminController::class, 'rolesPermisos'])->name('roles-permisos');
+            Route::put('roles/{rol}/permisos', [UsuarioAdminController::class, 'actualizarPermisosRol'])->whereNumber('rol')->name('roles.permisos.update');
         });
     });
 });

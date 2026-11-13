@@ -3,6 +3,7 @@
 namespace App\Actions\Evaluacion;
 
 use App\Enums\EstadoEtapa;
+use App\Enums\EstadoPostulacion;
 use App\Enums\MotivoNoAprobacion;
 use App\Models\Postulacion;
 use App\Models\ProcesoPrueba;
@@ -147,8 +148,12 @@ class CalificarAnalisisCv
                 }
             } else {
                 $etapaCv->update([
-                    'estado' => EstadoEtapa::Rechazada,
+                    'estado' => EstadoEtapa::Reprobada,
                     'finalizada_en' => now(),
+                ]);
+
+                $postulacion->update([
+                    'estado' => EstadoPostulacion::NoAprobada,
                 ]);
             }
 
