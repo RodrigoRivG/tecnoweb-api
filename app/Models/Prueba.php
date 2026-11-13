@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Table('prueba')]
-#[Fillable(['codigo', 'nombre', 'tipo', 'descripcion', 'es_plantilla', 'activa'])]
+#[Fillable(['codigo', 'nombre', 'tipo', 'descripcion', 'es_plantilla', 'activa', 'limite_preguntas'])]
 class Prueba extends Model
 {
     public const PPA = 'PPA';
@@ -25,6 +25,7 @@ class Prueba extends Model
             'tipo' => TipoPrueba::class,
             'es_plantilla' => 'boolean',
             'activa' => 'boolean',
+            'limite_preguntas' => 'integer',
         ];
     }
 

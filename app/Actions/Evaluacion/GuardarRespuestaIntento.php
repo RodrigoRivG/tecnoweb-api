@@ -9,6 +9,7 @@ use App\Models\Pregunta;
 use App\Models\RespuestaIntento;
 use App\Models\Usuario;
 use App\Support\Auditoria;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class GuardarRespuestaIntento
@@ -52,6 +53,13 @@ class GuardarRespuestaIntento
             ]);
         }
 
+        // Si el intento tiene asignado un lote aleatorio de preguntas, validar que pertenezca al intento
+        if ($intento->respuestas()->exists() && ! $intento->respuestas()->where('pregunta_id', $preguntaId)->exists()) {
+            throw ValidationException::withMessages([
+                'pregunta_id' => 'La pregunta no forma parte de este examen.',
+            ]);
+        }
+
         $opcion = OpcionPregunta::where('id', $opcionId)
             ->where('pregunta_id', $pregunta->id)
             ->first();
@@ -63,10 +71,34 @@ class GuardarRespuestaIntento
         }
 
         return Auditoria::comoUsuario($usuario->id, function () use ($intento, $pregunta, $opcion): RespuestaIntento {
-            return RespuestaIntento::updateOrCreate(
-                ['intento_id' => $intento->id, 'pregunta_id' => $pregunta->id],
-                ['opcion_id' => $opcion->id, 'respondida_en' => now()]
-            );
+            $existe = DB::table('talento.respuesta_intento')
+                ->where('intento_id', $intento->id)
+                ->where('pregunta_id', $pregunta->id)
+                ->exists();
+
+            if ($existe) {
+                DB::table('talento.respuesta_intento')
+                    ->where('intento_id', $intento->id)
+                    ->where('pregunta_id', $pregunta->id)
+                    ->update([
+                        'opcion_id' => $opcion->id,
+                        'respondida_en' => now(),
+                        'updated_at' => now(),
+                    ]);
+            } else {
+                DB::table('talento.respuesta_intento')->insert([
+                    'intento_id' => $intento->id,
+                    'pregunta_id' => $pregunta->id,
+                    'opcion_id' => $opcion->id,
+                    'respondida_en' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            return RespuestaIntento::where('intento_id', $intento->id)
+                ->where('pregunta_id', $pregunta->id)
+                ->firstOrFail();
         });
     }
 }

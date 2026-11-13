@@ -48,8 +48,14 @@ class FinalizarIntentoPrueba
                 'finalizado_en' => now(),
             ]);
 
-            // 2. Calcular puntaje máximo posible de la prueba
-            $preguntas = Pregunta::where('prueba_id', $prueba->id)->with('opciones')->get();
+            // 2. Calcular puntaje máximo posible de las preguntas asignadas a este intento
+            $preguntasAsignadasIds = $intento->respuestas()->pluck('pregunta_id');
+
+            if ($preguntasAsignadasIds->isNotEmpty()) {
+                $preguntas = Pregunta::whereIn('id', $preguntasAsignadasIds)->with('opciones')->get();
+            } else {
+                $preguntas = Pregunta::where('prueba_id', $prueba->id)->with('opciones')->get();
+            }
 
             $puntajeMaximo = 0.0;
             foreach ($preguntas as $p) {

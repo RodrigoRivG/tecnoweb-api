@@ -55,6 +55,7 @@ class PreguntaAdminController extends Controller
                     'nombre' => $p->nombre,
                     'descripcion' => $p->descripcion,
                     'activa' => $p->activa,
+                    'limite_preguntas' => $p->limite_preguntas,
                     'preguntas_count' => $p->preguntas_count,
                     'es_nuclear' => in_array($p->codigo, [
                         'TEST_PERSONALIDAD',
@@ -523,6 +524,38 @@ class PreguntaAdminController extends Controller
 
         return response()->json([
             'message' => 'Pregunta y sus opciones eliminadas exitosamente.',
+        ]);
+    }
+
+    /**
+     * Actualiza la configuración de muestreo de la prueba (límite de preguntas aleatorias para el examen).
+     */
+    public function actualizarConfiguracionPrueba(Request $request, Prueba $prueba): JsonResponse
+    {
+        $validados = $request->validate([
+            'limite_preguntas' => ['nullable', 'integer', 'min:1'],
+            'descripcion' => ['nullable', 'string', 'max:1000'],
+            'activa' => ['sometimes', 'boolean'],
+        ], [
+            'limite_preguntas.min' => 'El límite de preguntas debe ser de al menos 1 o dejarse vacío para evaluar todo el banco.',
+        ]);
+
+        $prueba->update([
+            'limite_preguntas' => $validados['limite_preguntas'] ?? null,
+            'descripcion' => $validados['descripcion'] ?? $prueba->descripcion,
+            'activa' => $validados['activa'] ?? $prueba->activa,
+        ]);
+
+        return response()->json([
+            'message' => 'Configuración de la prueba actualizada exitosamente.',
+            'data' => [
+                'id' => $prueba->id,
+                'codigo' => $prueba->codigo,
+                'nombre' => $prueba->nombre,
+                'limite_preguntas' => $prueba->limite_preguntas,
+                'descripcion' => $prueba->descripcion,
+                'activa' => $prueba->activa,
+            ],
         ]);
     }
 }

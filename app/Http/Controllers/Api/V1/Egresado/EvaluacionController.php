@@ -500,7 +500,11 @@ class EvaluacionController extends Controller
             $tiempoRestante = max(0, $procesoPrueba->tiempo_maximo_seg - $transcurrido);
         }
 
-        $totalPreguntas = Pregunta::where('prueba_id', $prueba->id)->count();
+        $limiteConfigurado = $procesoPrueba->limite_preguntas ?? $procesoPrueba->prueba->limite_preguntas;
+        $totalBanco = Pregunta::where('prueba_id', $prueba->id)->count();
+        $totalPreguntas = ($limiteConfigurado && $limiteConfigurado > 0 && $limiteConfigurado < $totalBanco)
+            ? $limiteConfigurado
+            : $totalBanco;
 
         // Mapeo de todas las pruebas de la etapa con su estado actual
         $listaPruebasEtapa = $todasPruebasEtapa->map(function ($pp) use ($postulacion, $procesoPrueba) {
@@ -655,10 +659,19 @@ class EvaluacionController extends Controller
         }
 
         $procesoPrueba = $intento->procesoPrueba;
-        $preguntas = Pregunta::where('prueba_id', $procesoPrueba->prueba_id)
-            ->with(['opciones', 'dimension', 'imagen'])
-            ->orderBy('orden')
-            ->get();
+        $preguntasAsignadasIds = $intento->respuestas()->pluck('pregunta_id');
+
+        if ($preguntasAsignadasIds->isNotEmpty()) {
+            $preguntas = Pregunta::whereIn('id', $preguntasAsignadasIds)
+                ->with(['opciones', 'dimension', 'imagen'])
+                ->orderBy('orden')
+                ->get();
+        } else {
+            $preguntas = Pregunta::where('prueba_id', $procesoPrueba->prueba_id)
+                ->with(['opciones', 'dimension', 'imagen'])
+                ->orderBy('orden')
+                ->get();
+        }
 
         $respuestasGuardadas = $intento->respuestas->keyBy('pregunta_id');
 

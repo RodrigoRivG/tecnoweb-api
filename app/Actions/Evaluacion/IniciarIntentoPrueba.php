@@ -6,7 +6,9 @@ use App\Enums\EstadoEtapa;
 use App\Enums\EstadoIntento;
 use App\Models\IntentoPrueba;
 use App\Models\Postulacion;
+use App\Models\Pregunta;
 use App\Models\ProcesoPrueba;
+use App\Models\RespuestaIntento;
 use App\Models\Usuario;
 use App\Support\Auditoria;
 use Illuminate\Validation\ValidationException;
@@ -49,9 +51,11 @@ class IniciarIntentoPrueba
                             'finalizado_en' => now(),
                         ]);
                     } else {
+                        $this->asegurarPreguntasAsignadas($intentoEnCurso, $procesoPrueba);
                         return $intentoEnCurso;
                     }
                 } else {
+                    $this->asegurarPreguntasAsignadas($intentoEnCurso, $procesoPrueba);
                     return $intentoEnCurso;
                 }
             }
@@ -67,14 +71,53 @@ class IniciarIntentoPrueba
                 ]);
             }
 
-            return IntentoPrueba::create([
+            $nuevoIntento = IntentoPrueba::create([
                 'postulacion_id' => $postulacion->id,
                 'proceso_prueba_id' => $procesoPrueba->id,
                 'nro_intento' => $intentosRealizados + 1,
                 'estado' => EstadoIntento::EnCurso,
                 'iniciado_en' => now(),
             ]);
+
+            $this->asegurarPreguntasAsignadas($nuevoIntento, $procesoPrueba);
+
+            return $nuevoIntento;
         });
+    }
+
+    /**
+     * Extrae y asigna las preguntas para el intento de evaluación.
+     * Si la prueba tiene configurado un límite (ej. 20 de 200), extrae una muestra aleatoria
+     * para que cada postulante rinda un examen único.
+     */
+    private function asegurarPreguntasAsignadas(IntentoPrueba $intento, ProcesoPrueba $procesoPrueba): void
+    {
+        $yaTienePreguntas = RespuestaIntento::where('intento_id', $intento->id)->exists();
+        if ($yaTienePreguntas) {
+            return;
+        }
+
+        $limite = $procesoPrueba->limite_preguntas ?? $procesoPrueba->prueba->limite_preguntas;
+        $totalBanco = Pregunta::where('prueba_id', $procesoPrueba->prueba_id)->count();
+
+        $query = Pregunta::where('prueba_id', $procesoPrueba->prueba_id);
+
+        if ($limite && $limite > 0 && $limite < $totalBanco) {
+            // Muestra aleatoria de N preguntas
+            $preguntas = $query->inRandomOrder()->take($limite)->get();
+        } else {
+            // Todas las preguntas del banco en su orden correlativo
+            $preguntas = $query->orderBy('orden')->get();
+        }
+
+        foreach ($preguntas as $p) {
+            RespuestaIntento::create([
+                'intento_id' => $intento->id,
+                'pregunta_id' => $p->id,
+                'opcion_id' => null,
+                'respondida_en' => now(),
+            ]);
+        }
     }
 }
 

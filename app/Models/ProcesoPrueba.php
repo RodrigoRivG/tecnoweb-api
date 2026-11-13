@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Table('proceso_prueba')]
 #[Fillable([
     'proceso_etapa_id', 'prueba_id', 'orden', 'peso', 'obligatoria', 'puntaje_minimo', 'umbral_origen',
-    'tiempo_minimo_seg', 'tiempo_maximo_seg', 'max_intentos',
+    'tiempo_minimo_seg', 'tiempo_maximo_seg', 'max_intentos', 'limite_preguntas',
 ])]
 class ProcesoPrueba extends Model
 {
@@ -31,6 +31,7 @@ class ProcesoPrueba extends Model
             'tiempo_minimo_seg' => 'integer',
             'tiempo_maximo_seg' => 'integer',
             'max_intentos' => 'integer',
+            'limite_preguntas' => 'integer',
         ];
     }
 
