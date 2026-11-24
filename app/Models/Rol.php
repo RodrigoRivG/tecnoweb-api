@@ -10,9 +10,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Table('rol')]
-#[Fillable(['codigo', 'nombre', 'descripcion'])]
+#[Fillable(['codigo', 'nombre', 'descripcion', 'es_panel', 'alcance_carrera'])]
 class Rol extends Model
 {
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'es_panel' => 'boolean',
+            'alcance_carrera' => 'boolean',
+        ];
+    }
+
     /**
      * @return HasMany<Usuario, $this>
      */

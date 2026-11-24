@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Table('dimension_evaluada')]
-#[Fillable(['codigo', 'nombre', 'tipo', 'orden'])]
+#[Fillable(['codigo', 'factor', 'nombre', 'polo_bajo', 'polo_alto', 'tipo', 'orden'])]
 class DimensionEvaluada extends Model
 {
     /**
@@ -19,4 +19,3 @@ class DimensionEvaluada extends Model
         return $this->hasMany(Pregunta::class, 'dimension_id');
     }
 }
-

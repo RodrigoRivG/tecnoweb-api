@@ -4,6 +4,7 @@ namespace App\Actions\Evaluacion;
 
 use App\Enums\EstadoEtapa;
 use App\Enums\EstadoIntento;
+use App\Models\AsignacionPrueba;
 use App\Models\IntentoPrueba;
 use App\Models\Postulacion;
 use App\Models\Pregunta;
@@ -34,6 +35,8 @@ class IniciarIntentoPrueba
             ]);
         }
 
+        app(AsignarInstrumentosPostulacion::class)->handle($postulacion);
+
         return Auditoria::comoUsuario($usuario->id, function () use ($postulacion, $procesoPrueba): IntentoPrueba {
             // Verificar si ya existe un intento en curso
             $intentoEnCurso = IntentoPrueba::where('postulacion_id', $postulacion->id)
@@ -42,22 +45,9 @@ class IniciarIntentoPrueba
                 ->first();
 
             if ($intentoEnCurso) {
-                // Verificar si expiró el tiempo máximo
-                if ($procesoPrueba->tiempo_maximo_seg !== null) {
-                    $segundosTranscurridos = now()->diffInSeconds($intentoEnCurso->iniciado_en);
-                    if ($segundosTranscurridos > $procesoPrueba->tiempo_maximo_seg) {
-                        $intentoEnCurso->update([
-                            'estado' => EstadoIntento::Expirado,
-                            'finalizado_en' => now(),
-                        ]);
-                    } else {
-                        $this->asegurarPreguntasAsignadas($intentoEnCurso, $procesoPrueba);
-                        return $intentoEnCurso;
-                    }
-                } else {
-                    $this->asegurarPreguntasAsignadas($intentoEnCurso, $procesoPrueba);
-                    return $intentoEnCurso;
-                }
+                $this->asegurarPreguntasAsignadas($intentoEnCurso, $procesoPrueba);
+
+                return $intentoEnCurso;
             }
 
             // Verificar cantidad máxima de intentos
@@ -86,9 +76,7 @@ class IniciarIntentoPrueba
     }
 
     /**
-     * Extrae y asigna las preguntas para el intento de evaluación.
-     * Si la prueba tiene configurado un límite (ej. 20 de 200), extrae una muestra aleatoria
-     * para que cada postulante rinda un examen único.
+     * Copia todas las preguntas del libro asignado, en orden. No recorta el banco.
      */
     private function asegurarPreguntasAsignadas(IntentoPrueba $intento, ProcesoPrueba $procesoPrueba): void
     {
@@ -97,18 +85,12 @@ class IniciarIntentoPrueba
             return;
         }
 
-        $limite = $procesoPrueba->limite_preguntas ?? $procesoPrueba->prueba->limite_preguntas;
-        $totalBanco = Pregunta::where('prueba_id', $procesoPrueba->prueba_id)->count();
+        $pruebaId = AsignacionPrueba::query()
+            ->where('postulacion_id', $intento->postulacion_id)
+            ->where('proceso_prueba_id', $procesoPrueba->id)
+            ->value('prueba_id') ?? $procesoPrueba->prueba_id;
 
-        $query = Pregunta::where('prueba_id', $procesoPrueba->prueba_id);
-
-        if ($limite && $limite > 0 && $limite < $totalBanco) {
-            // Muestra aleatoria de N preguntas
-            $preguntas = $query->inRandomOrder()->take($limite)->get();
-        } else {
-            // Todas las preguntas del banco en su orden correlativo
-            $preguntas = $query->orderBy('orden')->get();
-        }
+        $preguntas = Pregunta::where('prueba_id', $pruebaId)->orderBy('orden')->get();
 
         foreach ($preguntas as $p) {
             RespuestaIntento::create([

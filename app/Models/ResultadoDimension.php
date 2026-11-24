@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Table('resultado_dimension')]
-#[Fillable(['resultado_prueba_id', 'dimension_id', 'valor'])]
+#[Fillable(['resultado_prueba_id', 'dimension_id', 'valor', 'puntuacion_bruta'])]
 class ResultadoDimension extends Model
 {
     public $incrementing = false;
@@ -24,6 +24,7 @@ class ResultadoDimension extends Model
     {
         return [
             'valor' => 'decimal:2',
+            'puntuacion_bruta' => 'decimal:2',
         ];
     }
 
@@ -43,4 +44,3 @@ class ResultadoDimension extends Model
         return $this->belongsTo(DimensionEvaluada::class, 'dimension_id');
     }
 }
-

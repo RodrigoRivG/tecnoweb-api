@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ModoAsignacion;
 use App\Enums\UmbralOrigen;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Table;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Table('proceso_prueba')]
 #[Fillable([
-    'proceso_etapa_id', 'prueba_id', 'orden', 'peso', 'obligatoria', 'puntaje_minimo', 'umbral_origen',
+    'proceso_etapa_id', 'prueba_id', 'modo_asignacion', 'orden', 'peso', 'obligatoria', 'puntaje_minimo', 'umbral_origen',
     'tiempo_minimo_seg', 'tiempo_maximo_seg', 'max_intentos', 'limite_preguntas',
 ])]
 class ProcesoPrueba extends Model
@@ -23,6 +24,7 @@ class ProcesoPrueba extends Model
     protected function casts(): array
     {
         return [
+            'modo_asignacion' => ModoAsignacion::class,
             'orden' => 'integer',
             'peso' => 'decimal:2',
             'obligatoria' => 'boolean',

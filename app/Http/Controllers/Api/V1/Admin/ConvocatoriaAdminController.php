@@ -2,7 +2,11 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\Catalogos\LibrosPrueba;
 use App\Enums\EstadoProceso;
+use App\Enums\FamiliaPrueba;
+use App\Enums\ModoAsignacion;
+use App\Enums\TipoPrueba;
 use App\Enums\TipoProceso;
 use App\Enums\UmbralOrigen;
 use App\Http\Controllers\Controller;
@@ -274,9 +278,50 @@ class ConvocatoriaAdminController extends Controller
                 'vigencia_perfil_meses' => $datos['vigencia_perfil_meses'] ?? 12,
             ]);
 
-            // 3. Crear las 8 Etapas del Embudo y asociar sus pruebas estándar
+            // 3. Crear las etapas del embudo. La batería psicotécnica son 4 módulos.
             $etapasCatalogo = Etapa::pluck('id', 'codigo');
             $pruebasCatalogo = Prueba::pluck('id', 'codigo');
+
+            $vinculadas = $carrera->pruebas()
+                ->where('tipo', TipoPrueba::Test)
+                ->where('familia', FamiliaPrueba::HabilidadEspecifica)
+                ->where('activa', true)
+                ->orderBy('codigo')
+                ->get();
+
+            $especificas = $vinculadas->isNotEmpty()
+                ? $vinculadas->values()
+                : Prueba::query()
+                    ->whereIn('codigo', LibrosPrueba::trioPorCarrera($carrera->nombre))
+                    ->get()
+                    ->sortBy(fn (Prueba $prueba) => array_search($prueba->codigo, LibrosPrueba::trioPorCarrera($carrera->nombre), true))
+                    ->values();
+
+            if ($vinculadas->isEmpty()) {
+                foreach ($especificas as $especifica) {
+                    $especifica->carreras()->syncWithoutDetaching([$carrera->id]);
+                }
+            }
+
+            $pruebasEspecificas = $especificas->map(fn (Prueba $especifica) => [
+                'codigo' => $especifica->codigo,
+                'peso' => 5.00,
+                'umbral_origen' => UmbralOrigen::Fijo,
+                'modo' => ModoAsignacion::Fija,
+                'tiempo' => $especifica->tiempo_limite_seg,
+            ])->all();
+
+            $rotativos = collect(LibrosPrueba::cuposRotativos())->map(function (array $cupo): array {
+                $prueba = Prueba::query()->where('codigo', $cupo['codigo'])->first();
+
+                return [
+                    'codigo' => $cupo['codigo'],
+                    'peso' => $cupo['peso'],
+                    'umbral_origen' => UmbralOrigen::Fijo,
+                    'modo' => ModoAsignacion::Alterna,
+                    'tiempo' => $prueba?->tiempo_limite_seg,
+                ];
+            })->all();
 
             $etapasConfig = [
                 'INSCRIPCION' => [
@@ -296,33 +341,24 @@ class ConvocatoriaAdminController extends Controller
                 'EVALUACION_PSICOLOGICA' => [
                     'orden' => 4,
                     'pruebas' => [
-                        ['codigo' => 'TEST_PERSONALIDAD', 'peso' => 10.00, 'umbral_origen' => UmbralOrigen::Fijo],
-                        ['codigo' => 'TEST_INTELIGENCIA', 'peso' => 8.00, 'umbral_origen' => UmbralOrigen::Fijo],
-                        ['codigo' => 'TEST_INTELIGENCIA_EMOCIONAL', 'peso' => 7.00, 'umbral_origen' => UmbralOrigen::Fijo],
-                        ['codigo' => 'TEST_LECTURA_COMPRENSIVA', 'peso' => 5.00, 'umbral_origen' => UmbralOrigen::Fijo],
-                        ['codigo' => 'TEST_PURDUE_NO_VERBAL', 'peso' => 5.00, 'umbral_origen' => UmbralOrigen::Fijo],
-                    ],
-                ],
-                'HABILIDADES_BLANDAS' => [
-                    'orden' => 5,
-                    'pruebas' => [
-                        ['codigo' => 'TEST_HABILIDADES_BLANDAS', 'peso' => 15.00, 'umbral_origen' => UmbralOrigen::Fijo],
+                        ...$rotativos,
+                        ...$pruebasEspecificas,
                     ],
                 ],
                 'ANALISIS_CV' => [
-                    'orden' => 6,
+                    'orden' => 5,
                     'pruebas' => [
                         ['codigo' => 'CV_ANALISIS', 'peso' => 15.00, 'umbral_origen' => UmbralOrigen::Fijo],
                     ],
                 ],
                 'ENTREVISTA' => [
-                    'orden' => 7,
+                    'orden' => 6,
                     'pruebas' => [
                         ['codigo' => 'ENTREVISTA', 'peso' => 20.00, 'umbral_origen' => UmbralOrigen::Fijo],
                     ],
                 ],
                 'SELECCION' => [
-                    'orden' => 8,
+                    'orden' => 7,
                     'pruebas' => [],
                 ],
             ];
@@ -343,9 +379,13 @@ class ConvocatoriaAdminController extends Controller
                     if (isset($pruebasCatalogo[$codPrueba])) {
                         $procesoEtapa->pruebas()->create([
                             'prueba_id' => $pruebasCatalogo[$codPrueba],
+                            'modo_asignacion' => $pConf['modo'] ?? ModoAsignacion::Fija,
                             'peso' => $pConf['peso'],
                             'umbral_origen' => $pConf['umbral_origen'],
                             'obligatoria' => true,
+                            'tiempo_maximo_seg' => $pConf['tiempo'] ?? Prueba::query()->where('codigo', $codPrueba)->value('tiempo_limite_seg'),
+                            'limite_preguntas' => null,
+                            'max_intentos' => 1,
                         ]);
                     }
                 }

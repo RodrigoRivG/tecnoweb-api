@@ -54,6 +54,14 @@ class Proceso extends Model
     }
 
     /**
+     * @return HasOne<SolicitudEmpresa, $this>
+     */
+    public function solicitud(): HasOne
+    {
+        return $this->hasOne(SolicitudEmpresa::class, 'proceso_id');
+    }
+
+    /**
      * @return HasMany<ProcesoEtapa, $this>
      */
     public function etapas(): HasMany

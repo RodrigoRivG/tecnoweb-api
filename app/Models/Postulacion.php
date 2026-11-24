@@ -101,4 +101,15 @@ class Postulacion extends Model
     {
         return $this->hasOne(RankingResultado::class);
     }
+
+    /**
+     * Carrera de la convocatoria de talento o, si es una solicitud de empresa, la de esa solicitud.
+     */
+    public function carreraId(): ?int
+    {
+        $this->loadMissing(['proceso.convocatoria', 'proceso.solicitud']);
+
+        return $this->proceso?->convocatoria?->carrera_id
+            ?? $this->proceso?->solicitud?->carrera_id;
+    }
 }

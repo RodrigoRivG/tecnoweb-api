@@ -264,7 +264,9 @@ class EstudiantesPruebaSeeder extends Seeder
             }
             $etapaPsico->update(['estado' => EstadoEtapa::Aprobada, 'finalizada_en' => now()]);
 
-            // 5. Etapa 5: Habilidades Blandas
+            // Las habilidades blandas rotan dentro de la evaluación psicológica.
+            // Este bloque solo corre si una convocatoria vieja todavía tiene la etapa aparte.
+            if (isset($etapas['HABILIDADES_BLANDAS'])) {
             $etapaBlandas = $etapas['HABILIDADES_BLANDAS'];
             $ppBlandas = ProcesoPrueba::where('proceso_etapa_id', $etapaBlandas->proceso_etapa_id)
                 ->whereHas('prueba', fn ($q) => $q->where('codigo', 'TEST_HABILIDADES_BLANDAS'))
@@ -307,6 +309,12 @@ class EstudiantesPruebaSeeder extends Seeder
             }
             $finalizarIntento->handle($usuario, $intentoBlandas);
             $etapaBlandas->update(['estado' => EstadoEtapa::Aprobada, 'finalizada_en' => now()]);
+            }
+
+            if ($fase === 5 && ! isset($etapas['HABILIDADES_BLANDAS'])) {
+                $this->command?->info("   -> Postulación #{$postulacion->id}: las habilidades blandas ya están en la evaluación psicológica.");
+                continue;
+            }
 
             // 6. Etapa 6: Análisis de CV
             $etapaCv = $etapas['ANALISIS_CV'];

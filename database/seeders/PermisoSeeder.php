@@ -72,6 +72,12 @@ class PermisoSeeder extends Seeder
                 'modulo' => 'EVALUACIONES',
                 'descripcion' => 'Calcular ranking oficial, adjudicar plazas y publicar perfiles en la landing.',
             ],
+            [
+                'codigo' => 'solicitudes.gestionar',
+                'nombre' => 'Gestionar solicitudes de empresa',
+                'modulo' => 'EVALUACIONES',
+                'descripcion' => 'Revisar y aprobar las solicitudes que envían las empresas cliente.',
+            ],
 
             // Módulo Usuarios y Seguridad
             [

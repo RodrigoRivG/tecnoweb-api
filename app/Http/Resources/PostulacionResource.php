@@ -38,6 +38,7 @@ class PostulacionResource extends JsonResource
     public function toArray(Request $request): array
     {
         $convocatoria = $this->proceso->convocatoria;
+        $carrera = $convocatoria?->carrera ?? $this->proceso->solicitud?->carrera;
 
         return [
             'id' => $this->id,
@@ -52,9 +53,9 @@ class PostulacionResource extends JsonResource
             'convocatoria' => [
                 'proceso_id' => $this->proceso->id,
                 'nombre' => $this->proceso->nombre,
-                'carrera' => $convocatoria->carrera->nombre,
-                'facultad' => $convocatoria->carrera->facultad->nombre,
-                'gestion' => $convocatoria->gestion,
+                'carrera' => $carrera?->nombre,
+                'facultad' => $carrera?->facultad?->nombre,
+                'gestion' => $convocatoria?->gestion,
             ],
             $this->mergeWhen($this->relationLoaded('etapas'), fn (): array => [
                 'etapas' => $this->etapas

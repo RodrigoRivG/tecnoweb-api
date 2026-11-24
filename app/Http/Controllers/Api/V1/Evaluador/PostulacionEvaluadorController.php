@@ -14,15 +14,29 @@ class PostulacionEvaluadorController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $postulaciones = Postulacion::with([
+        $consulta = Postulacion::with([
             'persona.usuario',
             'persona.egresados',
             'proceso.convocatoria.carrera.facultad',
+            'proceso.solicitud',
             'etapas.procesoEtapa.etapa',
             'ranking',
-        ])
-            ->orderByDesc('id')
-            ->get();
+        ])->orderByDesc('id');
+
+        $usuario = $request->user();
+
+        if ($usuario->rol?->alcance_carrera) {
+            $carreraIds = $usuario->carreras()->pluck('carrera.id');
+
+            if ($carreraIds->isNotEmpty()) {
+                $consulta->where(function ($filtro) use ($carreraIds) {
+                    $filtro->whereHas('proceso.convocatoria', fn ($convocatoria) => $convocatoria->whereIn('carrera_id', $carreraIds))
+                        ->orWhereHas('proceso.solicitud', fn ($solicitud) => $solicitud->whereIn('carrera_id', $carreraIds));
+                });
+            }
+        }
+
+        $postulaciones = $consulta->get();
 
         $data = $postulaciones->map(function (Postulacion $p) {
             $convocatoria = $p->proceso?->convocatoria;

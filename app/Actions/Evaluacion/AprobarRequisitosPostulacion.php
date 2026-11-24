@@ -57,7 +57,10 @@ class AprobarRequisitosPostulacion
                 ]);
             }
 
-            return $postulacion->refresh();
+            $postulacion->refresh();
+            app(AsignarInstrumentosPostulacion::class)->handle($postulacion);
+
+            return $postulacion;
         });
     }
 }

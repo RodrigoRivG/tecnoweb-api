@@ -32,16 +32,20 @@ class DocumentoController extends Controller
     public function archivo(Request $request, int $documento): StreamedResponse
     {
         $usuario = $request->user();
-        $esEvaluador = in_array($usuario->rol?->codigo, ['ADMIN', 'AYUDANTE'], true);
+        $veExpedientes = $usuario->tienePermiso('postulaciones.ver');
 
-        $query = DocumentoPostulacion::query()->with('archivo');
+        $query = DocumentoPostulacion::query()->with(['archivo', 'postulacion']);
 
-        if (! $esEvaluador) {
+        if (! $veExpedientes) {
             $personaId = $usuario->persona?->id;
             $query->whereHas('postulacion', fn (Builder $postulacion) => $postulacion->where('persona_id', $personaId));
         }
 
         $documentoModelo = $query->findOrFail($documento);
+
+        if ($veExpedientes && ! $usuario->abarcaCarrera($documentoModelo->postulacion?->carreraId())) {
+            abort(Response::HTTP_NOT_FOUND);
+        }
 
         return Storage::disk(SubirDocumentoPostulacion::DISCO)
             ->download($documentoModelo->archivo->clave_almacenamiento, $documentoModelo->archivo->nombre_original);

@@ -66,7 +66,6 @@ El modelo no cambia: mismo motor único de evaluación (supertipo `proceso` con 
 | `facultad` | Facultades UAGRM. ppa_minimo lo define la administración y rige la evaluación técnica del flujo A |
 | `carrera` | Carreras de cada facultad |
 | `area_preferencia` | Áreas de preferencia por carrera (ej. Derecho: penal, civil, laboral) |
-| `ayudante_carrera` | Carreras que atiende cada junior/ayudante; define su bandeja de tareas manuales |
 | `egresado` | Perfil académico por carrera de un egresado titulado. La facultad se deduce de la carrera |
 | `empresa` | Empresas que contratan evaluaciones o consultan talento |
 | `contacto_empresa` | Usuarios de la empresa cliente (rol EMPRESA) y su cargo |
@@ -269,16 +268,6 @@ CREATE TABLE area_preferencia (
   CONSTRAINT fk_area_carrera FOREIGN KEY (carrera_id) REFERENCES carrera (id)
 );
 COMMENT ON TABLE area_preferencia IS 'Áreas de preferencia por carrera (ej. Derecho: penal, civil, laboral)';
-
-CREATE TABLE ayudante_carrera (
-  usuario_id BIGINT NOT NULL,
-  carrera_id INTEGER NOT NULL,
-  PRIMARY KEY (usuario_id, carrera_id),
-  CONSTRAINT fk_ayudante_usuario FOREIGN KEY (usuario_id) REFERENCES usuario (id) ON DELETE CASCADE,
-  CONSTRAINT fk_ayudante_carrera FOREIGN KEY (carrera_id) REFERENCES carrera (id)
-);
-COMMENT ON TABLE ayudante_carrera IS 'Carreras que atiende cada junior/ayudante; define su bandeja de tareas manuales';
-CREATE INDEX ix_ayudante_carrera_carrera ON ayudante_carrera (carrera_id);
 
 CREATE TABLE egresado (
   id BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,

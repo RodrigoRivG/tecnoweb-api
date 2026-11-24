@@ -41,7 +41,7 @@ class BancoPreguntasInteligenciaSeeder extends Seeder
 
     public function run(): void
     {
-        $prueba = Prueba::query()->where('codigo', 'TEST_INTELIGENCIA')->firstOrFail();
+        $prueba = Prueba::query()->where('codigo', 'ES_USTED_MUY_HABIL')->firstOrFail();
 
         $this->command?->info("Poblando banco de preguntas para la prueba [{$prueba->codigo}] (ID: {$prueba->id})...");
 

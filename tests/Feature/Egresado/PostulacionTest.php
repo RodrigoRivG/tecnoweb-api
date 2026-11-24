@@ -45,10 +45,9 @@ class PostulacionTest extends TestCase
                 ['codigo' => 'EVALUACION_TECNICA', 'nombre' => 'Evaluación técnica', 'orden' => 2, 'estado' => 'APROBADA'],
                 ['codigo' => 'REQUISITOS', 'nombre' => 'Requisitos', 'orden' => 3, 'estado' => 'PENDIENTE'],
                 ['codigo' => 'EVALUACION_PSICOLOGICA', 'nombre' => 'Evaluación psicológica', 'orden' => 4, 'estado' => 'BLOQUEADA'],
-                ['codigo' => 'HABILIDADES_BLANDAS', 'nombre' => 'Medición de habilidades blandas', 'orden' => 5, 'estado' => 'BLOQUEADA'],
-                ['codigo' => 'ANALISIS_CV', 'nombre' => 'Análisis de CV', 'orden' => 6, 'estado' => 'BLOQUEADA'],
-                ['codigo' => 'ENTREVISTA', 'nombre' => 'Entrevista', 'orden' => 7, 'estado' => 'BLOQUEADA'],
-                ['codigo' => 'SELECCION', 'nombre' => 'Selección', 'orden' => 8, 'estado' => 'BLOQUEADA'],
+                ['codigo' => 'ANALISIS_CV', 'nombre' => 'Análisis de CV', 'orden' => 5, 'estado' => 'BLOQUEADA'],
+                ['codigo' => 'ENTREVISTA', 'nombre' => 'Entrevista', 'orden' => 6, 'estado' => 'BLOQUEADA'],
+                ['codigo' => 'SELECCION', 'nombre' => 'Selección', 'orden' => 7, 'estado' => 'BLOQUEADA'],
             ])
 
 
@@ -66,7 +65,7 @@ class PostulacionTest extends TestCase
             'aprobada' => true,
         ]);
         $historial = HistorialPostulacionEtapa::query()->get();
-        $this->assertCount(6, $historial);
+        $this->assertCount(7, $historial);
         $this->assertSame([$usuario->id], $historial->pluck('usuario_id')->unique()->values()->all());
     }
 
@@ -186,7 +185,7 @@ class PostulacionTest extends TestCase
         $detalleAjeno = $this->actingAs($usuario, 'sanctum')->getJson(route('egresado.postulaciones.show', $ajena));
 
         $lista->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $propia->id)->assertJsonMissingPath('data.0.etapas');
-        $detalle->assertOk()->assertJsonPath('data.id', $propia->id)->assertJsonCount(8, 'data.etapas');
+        $detalle->assertOk()->assertJsonPath('data.id', $propia->id)->assertJsonCount(7, 'data.etapas');
         $detalleAjeno->assertNotFound();
 
     }

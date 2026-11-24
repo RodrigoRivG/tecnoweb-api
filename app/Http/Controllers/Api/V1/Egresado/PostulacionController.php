@@ -63,15 +63,19 @@ class PostulacionController extends Controller
     public function show(Request $request, int $postulacion): PostulacionResource
     {
         $usuario = $request->user();
-        $esEvaluador = in_array($usuario->rol?->codigo, ['ADMIN', 'AYUDANTE'], true);
+        $veExpedientes = $usuario->tienePermiso('postulaciones.ver');
 
         $query = Postulacion::query()->with(PostulacionResource::RELACIONES_DETALLE);
 
-        if (! $esEvaluador) {
+        if (! $veExpedientes) {
             $query->where('persona_id', $usuario->persona?->id);
         }
 
         $modelo = $query->findOrFail($postulacion);
+
+        if ($veExpedientes && ! $usuario->abarcaCarrera($modelo->carreraId())) {
+            abort(Response::HTTP_NOT_FOUND);
+        }
 
         return new PostulacionResource($modelo);
     }

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Table('respuesta_intento')]
-#[Fillable(['intento_id', 'pregunta_id', 'opcion_id', 'respondida_en'])]
+#[Fillable(['intento_id', 'pregunta_id', 'opcion_id', 'expirada', 'respondida_en'])]
 class RespuestaIntento extends Model
 {
     public $incrementing = false;
@@ -23,6 +23,7 @@ class RespuestaIntento extends Model
     protected function casts(): array
     {
         return [
+            'expirada' => 'boolean',
             'respondida_en' => 'immutable_datetime',
         ];
     }

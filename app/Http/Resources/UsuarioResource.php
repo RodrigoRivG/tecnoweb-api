@@ -23,9 +23,13 @@ class UsuarioResource extends JsonResource
             'correo' => $this->correo,
             'estado' => $this->estado,
             'rol' => [
+                'id' => $this->rol->id,
                 'codigo' => $this->rol->codigo,
                 'nombre' => $this->rol->nombre,
+                'es_panel' => (bool) $this->rol->es_panel,
+                'alcance_carrera' => (bool) $this->rol->alcance_carrera,
             ],
+            'permisos' => $this->codigosPermiso(),
             'persona' => $this->whenLoaded('persona', fn (): ?array => $this->persona === null ? null : [
                 'nombres' => $this->persona->nombres,
                 'apellido_paterno' => $this->persona->apellido_paterno,

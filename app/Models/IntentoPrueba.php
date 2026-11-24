@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Table('intento_prueba')]
-#[Fillable(['postulacion_id', 'proceso_prueba_id', 'nro_intento', 'estado', 'iniciado_en', 'finalizado_en'])]
+#[Fillable(['postulacion_id', 'proceso_prueba_id', 'nro_intento', 'estado', 'iniciado_en', 'pregunta_actual_iniciada_en', 'finalizado_en'])]
 class IntentoPrueba extends Model
 {
     /**
@@ -25,6 +25,7 @@ class IntentoPrueba extends Model
             'nro_intento' => 'integer',
             'estado' => EstadoIntento::class,
             'iniciado_en' => 'immutable_datetime',
+            'pregunta_actual_iniciada_en' => 'immutable_datetime',
             'finalizado_en' => 'immutable_datetime',
             'duracion_seg' => 'integer',
         ];

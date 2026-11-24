@@ -30,15 +30,15 @@ class FormatoTablasTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_el_esquema_tiene_las_43_tablas_las_6_vistas_y_los_53_triggers(): void
+    public function test_el_esquema_tiene_las_tablas_de_negocio_las_6_vistas_y_sus_triggers(): void
     {
         $tablas = DB::scalar("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'talento' AND table_type = 'BASE TABLE'");
         $vistas = DB::scalar("SELECT count(*) FROM information_schema.views WHERE table_schema = 'talento'");
         $triggers = DB::scalar("SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'talento' AND NOT t.tgisinternal");
 
-        $this->assertSame(43, $tablas);
+        $this->assertSame(49, $tablas);
         $this->assertSame(6, $vistas);
-        $this->assertSame(53, $triggers);
+        $this->assertSame(59, $triggers);
     }
 
     public function test_tablas_y_columnas_estan_en_minuscula_y_snake_case(): void
@@ -178,7 +178,7 @@ class FormatoTablasTest extends TestCase
         $despues = DB::table('rol')->count() + DB::table('etapa')->count() + DB::table('dimension_evaluada')->count()
             + DB::table('prueba')->count() + DB::table('rubrica_criterio')->count() + DB::table('tipo_documento')->count()
             + DB::table('parametro_sistema')->count();
-        $this->assertSame(5 + 10 + 16 + 9 + 4 + 4 + 3, $antes);
+        $this->assertSame(5 + 10 + 24 + 15 + 8 + 4 + 3, $antes);
         $this->assertSame($antes, $despues);
     }
 }

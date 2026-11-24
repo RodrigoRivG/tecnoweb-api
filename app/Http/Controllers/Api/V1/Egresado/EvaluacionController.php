@@ -2,16 +2,20 @@
 
 namespace App\Http\Controllers\Api\V1\Egresado;
 
+use App\Actions\Evaluacion\AsignarInstrumentosPostulacion;
 use App\Actions\Evaluacion\FinalizarIntentoPrueba;
 use App\Actions\Evaluacion\GuardarRespuestaIntento;
 use App\Actions\Evaluacion\IniciarIntentoPrueba;
 use App\Enums\EstadoEtapa;
 use App\Enums\EstadoIntento;
 use App\Http\Controllers\Controller;
+use App\Models\AsignacionPrueba;
 use App\Models\IntentoPrueba;
 use App\Models\Postulacion;
 use App\Models\Pregunta;
 use App\Models\ProcesoPrueba;
+use App\Support\RelojPrueba;
+use App\Support\TiempoPregunta;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -384,6 +388,71 @@ class EvaluacionController extends Controller
     }
 
     /**
+     * Tablero de módulos del postulante. Cada prueba tiene estado y reloj propios.
+     */
+    public function modulos(Request $request, int $postulacionId, AsignarInstrumentosPostulacion $asignar): JsonResponse
+    {
+        $postulacion = $request->user()->persona?->postulaciones()
+            ->with(['etapas.procesoEtapa.etapa', 'etapas.procesoEtapa.pruebas.prueba', 'resultados'])
+            ->findOrFail($postulacionId);
+
+        $asignar->handle($postulacion);
+        $postulacion->unsetRelation('etapas');
+        $postulacion->load(['etapas.procesoEtapa.etapa', 'etapas.procesoEtapa.pruebas.prueba', 'resultados']);
+
+        $asignaciones = AsignacionPrueba::query()
+            ->with('prueba')
+            ->where('postulacion_id', $postulacion->id)
+            ->get()
+            ->keyBy('proceso_prueba_id');
+
+        $modulos = $postulacion->etapas
+            ->flatMap(function ($etapa) use ($postulacion, $asignaciones) {
+                return $etapa->procesoEtapa->pruebas
+                    ->filter(fn ($cupo) => $cupo->prueba?->tipo?->value === 'TEST')
+                    ->map(function ($cupo) use ($postulacion, $asignaciones, $etapa) {
+                        $instrumento = $asignaciones->get($cupo->id)?->prueba ?? $cupo->prueba;
+                        $resultado = $postulacion->resultados->firstWhere('proceso_prueba_id', $cupo->id);
+                        $intento = IntentoPrueba::query()
+                            ->where('postulacion_id', $postulacion->id)
+                            ->where('proceso_prueba_id', $cupo->id)
+                            ->where('estado', EstadoIntento::EnCurso)
+                            ->latest('id')
+                            ->first();
+
+                        $estado = 'BLOQUEADA';
+                        if ($resultado !== null) {
+                            $estado = 'FINALIZADO';
+                        } elseif ($intento !== null) {
+                            $estado = 'EN_PROGRESO';
+                        } elseif ($etapa->estado === EstadoEtapa::Pendiente) {
+                            $estado = 'PENDIENTE';
+                        }
+
+                        $limitePregunta = TiempoPregunta::segundos($instrumento->familia);
+                        $segundos = null;
+                        if ($intento?->pregunta_actual_iniciada_en) {
+                            $segundos = TiempoPregunta::restantes($intento->pregunta_actual_iniciada_en, $limitePregunta);
+                        }
+
+                        return [
+                            'proceso_prueba_id' => $cupo->id,
+                            'familia' => $instrumento->familia?->value,
+                            'modulo' => $instrumento->familia?->etiqueta() ?? $etapa->procesoEtapa->etapa->nombre,
+                            'codigo' => $instrumento->codigo,
+                            'nombre' => $instrumento->nombre,
+                            'estado' => $estado,
+                            'segundos_restantes' => $segundos,
+                            'puntaje_normalizado' => $resultado ? (float) $resultado->puntaje_normalizado : null,
+                        ];
+                    });
+            })
+            ->values();
+
+        return response()->json(['data' => $modulos]);
+    }
+
+    /**
      * Consulta el estado de la evaluación activa de la postulación.
      */
     public function evaluacionActiva(Request $request, int $postulacionId): JsonResponse
@@ -392,6 +461,8 @@ class EvaluacionController extends Controller
         $postulacion = $usuario->persona?->postulaciones()
             ->with(['persona', 'etapas.procesoEtapa.pruebas.prueba', 'resultados.dimensiones.dimension'])
             ->findOrFail($postulacionId);
+
+        app(AsignarInstrumentosPostulacion::class)->handle($postulacion);
 
         // Buscar la etapa actual que tiene pruebas configuradas
         $etapaConPrueba = $postulacion->etapas
@@ -432,7 +503,12 @@ class EvaluacionController extends Controller
             }) ?? $todasPruebasEtapa->first();
         }
 
-        $prueba = $procesoPrueba->prueba;
+        $prueba = AsignacionPrueba::query()
+            ->with('prueba')
+            ->where('postulacion_id', $postulacion->id)
+            ->where('proceso_prueba_id', $procesoPrueba->id)
+            ->first()
+            ?->prueba ?? $procesoPrueba->prueba;
 
         $intentoEnCurso = IntentoPrueba::where('postulacion_id', $postulacion->id)
             ->where('proceso_prueba_id', $procesoPrueba->id)
@@ -444,17 +520,14 @@ class EvaluacionController extends Controller
             ->where('proceso_prueba_id', $procesoPrueba->id)
             ->first();
 
+        $tiempoMaximo = RelojPrueba::segundosMaximos($procesoPrueba, $postulacion->id);
         $tiempoRestante = null;
-        if ($intentoEnCurso && $procesoPrueba->tiempo_maximo_seg) {
-            $transcurrido = now()->diffInSeconds($intentoEnCurso->iniciado_en);
-            $tiempoRestante = max(0, $procesoPrueba->tiempo_maximo_seg - $transcurrido);
+        if ($intentoEnCurso && $tiempoMaximo) {
+            $transcurrido = abs(now()->diffInSeconds($intentoEnCurso->iniciado_en));
+            $tiempoRestante = max(0, $tiempoMaximo - $transcurrido);
         }
 
-        $limiteConfigurado = $procesoPrueba->limite_preguntas ?? $procesoPrueba->prueba->limite_preguntas;
-        $totalBanco = Pregunta::where('prueba_id', $prueba->id)->count();
-        $totalPreguntas = ($limiteConfigurado && $limiteConfigurado > 0 && $limiteConfigurado < $totalBanco)
-            ? $limiteConfigurado
-            : $totalBanco;
+        $totalPreguntas = Pregunta::where('prueba_id', $prueba->id)->count();
 
         // Mapeo de todas las pruebas de la etapa con su estado actual
         $listaPruebasEtapa = $todasPruebasEtapa->map(function ($pp) use ($postulacion, $procesoPrueba) {
@@ -474,7 +547,7 @@ class EvaluacionController extends Controller
                 'orden' => $pp->orden,
                 'peso' => (float) $pp->peso,
                 'obligatoria' => $pp->obligatoria,
-                'tiempo_maximo_seg' => $pp->tiempo_maximo_seg ?? 1800,
+                'tiempo_maximo_seg' => $pp->prueba->tiempo_limite_seg ?? $pp->tiempo_maximo_seg ?? 1800,
                 'seleccionada' => ($pp->id === $procesoPrueba->id),
                 'completada' => ($res !== null),
                 'aprobada' => (bool) ($res?->aprobada ?? false),
@@ -491,9 +564,9 @@ class EvaluacionController extends Controller
         $diagnosticoHabilidadesBlandas = null;
 
         if ($ultimoResultado) {
-            if ($prueba->codigo === 'TEST_INTELIGENCIA') {
+            if (in_array($prueba->codigo, ['ES_USTED_MUY_HABIL', 'DOMINOS_D48', 'RAVEN', 'TEST_INTELIGENCIA'], true)) {
                 $diagnosticoInteligencia = $this->diagnosticoInteligencia((float) $ultimoResultado->puntaje_bruto, (float) $ultimoResultado->puntaje_maximo);
-            } elseif ($prueba->codigo === 'TEST_INTELIGENCIA_EMOCIONAL') {
+            } elseif (in_array($prueba->codigo, ['TMMS_24', 'TEST_INTELIGENCIA_EMOCIONAL'], true)) {
                 $intentoFinalizado = IntentoPrueba::find($ultimoResultado->intento_id);
                 if ($intentoFinalizado) {
                     $diagnosticoEmocional = $this->diagnosticoInteligenciaEmocional($intentoFinalizado, $postulacion);
@@ -528,7 +601,8 @@ class EvaluacionController extends Controller
                     'estado' => $etapaConPrueba->estado,
                 ],
                 'configuracion' => [
-                    'tiempo_maximo_seg' => $procesoPrueba->tiempo_maximo_seg ?? 1800,
+                    'tiempo_pregunta_seg' => TiempoPregunta::segundos($prueba->familia),
+                    'tiempo_maximo_seg' => $tiempoMaximo ?? 1800,
                     'tiempo_minimo_seg' => $procesoPrueba->tiempo_minimo_seg ?? 0,
                     'max_intentos' => $procesoPrueba->max_intentos ?? 1,
                     'total_preguntas' => $totalPreguntas,
@@ -537,7 +611,7 @@ class EvaluacionController extends Controller
                     'id' => $intentoEnCurso->id,
                     'nro_intento' => $intentoEnCurso->nro_intento,
                     'iniciado_en' => $intentoEnCurso->iniciado_en,
-                    'segundos_restantes' => $tiempoRestante ?? ($procesoPrueba->tiempo_maximo_seg ?? 1800),
+                    'segundos_restantes' => $tiempoRestante ?? ($tiempoMaximo ?? 1800),
                 ] : null,
                 'resultado' => $ultimoResultado ? [
                     'puntaje_bruto' => $ultimoResultado->puntaje_bruto,
@@ -590,9 +664,9 @@ class EvaluacionController extends Controller
     }
 
     /**
-     * Obtiene el listado de preguntas y opciones del intento en curso.
+     * Devuelve la pregunta abierta. Si su tiempo venció, la cierra en cero y pasa a la siguiente.
      */
-    public function preguntas(Request $request, int $intentoId): JsonResponse
+    public function preguntas(Request $request, int $intentoId, FinalizarIntentoPrueba $finalizar): JsonResponse
     {
         $usuario = $request->user();
         $intento = IntentoPrueba::with(['procesoPrueba.prueba', 'postulacion', 'respuestas'])
@@ -604,69 +678,125 @@ class EvaluacionController extends Controller
             ]);
         }
 
-        $procesoPrueba = $intento->procesoPrueba;
-        $preguntasAsignadasIds = $intento->respuestas()->pluck('pregunta_id');
-
-        if ($preguntasAsignadasIds->isNotEmpty()) {
-            $preguntas = Pregunta::whereIn('id', $preguntasAsignadasIds)
-                ->with(['opciones', 'dimension', 'imagen'])
-                ->orderBy('orden')
-                ->get();
-        } else {
-            $preguntas = Pregunta::where('prueba_id', $procesoPrueba->prueba_id)
-                ->with(['opciones', 'dimension', 'imagen'])
-                ->orderBy('orden')
-                ->get();
+        if ($intento->estado !== EstadoIntento::EnCurso) {
+            return response()->json([
+                'data' => [
+                    'cerrado_por_tiempo' => $intento->estado === EstadoIntento::Finalizado,
+                    'intento' => ['id' => $intento->id, 'estado' => $intento->estado, 'segundos_restantes' => 0],
+                    'preguntas' => [],
+                    'progreso' => ['respondidas' => 0, 'total' => $intento->respuestas->count()],
+                ],
+            ]);
         }
 
-        $respuestasGuardadas = $intento->respuestas->keyBy('pregunta_id');
+        $procesoPrueba = $intento->procesoPrueba;
+        $libro = AsignacionPrueba::query()
+            ->with('prueba')
+            ->where('postulacion_id', $intento->postulacion_id)
+            ->where('proceso_prueba_id', $procesoPrueba->id)
+            ->first()
+            ?->prueba ?? $procesoPrueba->prueba;
+        $limite = TiempoPregunta::segundos($libro?->familia);
 
-        $tiempoRestante = null;
-        if ($procesoPrueba->tiempo_maximo_seg) {
-            $transcurrido = now()->diffInSeconds($intento->iniciado_en);
-            $tiempoRestante = max(0, $procesoPrueba->tiempo_maximo_seg - $transcurrido);
+        $pregunta = null;
+        $restantes = $limite;
+
+        for ($paso = 0; $paso < 300; $paso++) {
+            $intento->refresh();
+            $intento->load('respuestas');
+
+            $pendientesIds = $intento->respuestas
+                ->filter(fn ($respuesta) => $respuesta->opcion_id === null && ! $respuesta->expirada)
+                ->pluck('pregunta_id');
+
+            $pregunta = $pendientesIds->isEmpty()
+                ? null
+                : Pregunta::query()->with(['opciones', 'dimension', 'imagen'])->whereIn('id', $pendientesIds)->orderBy('orden')->first();
+
+            if ($pregunta === null) {
+                if ($intento->respuestas->isNotEmpty()) {
+                    $finalizar->handle($usuario, $intento);
+                }
+
+                return response()->json([
+                    'data' => $this->paquetePregunta($intento->fresh(), $procesoPrueba, null, 0, true),
+                ]);
+            }
+
+            if ($intento->pregunta_actual_iniciada_en === null) {
+                $intento->update(['pregunta_actual_iniciada_en' => now()]);
+                $intento->refresh();
+            }
+
+            $restantes = TiempoPregunta::restantes($intento->pregunta_actual_iniciada_en, $limite);
+            if ($restantes > 0) {
+                break;
+            }
+
+            DB::table('talento.respuesta_intento')
+                ->where('intento_id', $intento->id)
+                ->where('pregunta_id', $pregunta->id)
+                ->update([
+                    'expirada' => true,
+                    'respondida_en' => now(),
+                    'updated_at' => now(),
+                ]);
+            $intento->update(['pregunta_actual_iniciada_en' => now()]);
         }
 
         return response()->json([
-            'data' => [
-                'intento' => [
-                    'id' => $intento->id,
-                    'estado' => $intento->estado,
-                    'iniciado_en' => $intento->iniciado_en,
-                    'segundos_restantes' => $tiempoRestante ?? ($procesoPrueba->tiempo_maximo_seg ?? 1800),
-                ],
-                'prueba' => [
-                    'id' => $procesoPrueba->prueba->id,
-                    'codigo' => $procesoPrueba->prueba->codigo,
-                    'nombre' => $procesoPrueba->prueba->nombre,
-                    'descripcion' => $procesoPrueba->prueba->descripcion,
-                ],
-                'preguntas' => $preguntas->map(function (Pregunta $p) use ($respuestasGuardadas) {
-                    $respuesta = $respuestasGuardadas->get($p->id);
-
-                    // Si la pregunta tiene imagen asignada, construir la URL pública directa
-                    $imagenUrl = null;
-                    if ($p->imagen_archivo_id) {
-                        $clave = $p->imagen?->clave_almacenamiento;
-                        $imagenUrl = $clave ? url($clave) : url("pruebas/inteligencia/{$p->imagen?->nombre_original}");
-                    }
-
-                    return [
-                        'id' => $p->id,
-                        'orden' => $p->orden,
-                        'enunciado' => $p->enunciado,
-                        'imagen_url' => $imagenUrl,
-                        'dimension' => $p->dimension?->nombre,
-                        'opcion_seleccionada_id' => $respuesta?->opcion_id,
-                        'opciones' => $p->opciones->map(fn ($o) => [
-                            'id' => $o->id,
-                            'etiqueta' => $o->etiqueta,
-                            'texto' => $o->texto,
-                        ])->values(),
-                    ];
-                }),
-            ],
+            'data' => $this->paquetePregunta($intento, $procesoPrueba, $pregunta, $restantes, false),
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function paquetePregunta(IntentoPrueba $intento, ProcesoPrueba $procesoPrueba, ?Pregunta $pregunta, int $restantes, bool $cerrado): array
+    {
+        $intento->loadMissing('respuestas');
+        $cerradas = $intento->respuestas->filter(fn ($respuesta) => $respuesta->opcion_id !== null || $respuesta->expirada)->count();
+        $total = $intento->respuestas->count();
+
+        $imagenUrl = null;
+        if ($pregunta?->imagen_archivo_id) {
+            $clave = $pregunta->imagen?->clave_almacenamiento;
+            $imagenUrl = $clave ? url($clave) : url("pruebas/inteligencia/{$pregunta->imagen?->nombre_original}");
+        }
+
+        return [
+            'cerrado_por_tiempo' => $cerrado,
+            'intento' => [
+                'id' => $intento->id,
+                'estado' => $cerrado ? EstadoIntento::Finalizado : $intento->estado,
+                'iniciado_en' => $intento->iniciado_en,
+                'segundos_restantes' => $cerrado ? 0 : $restantes,
+                'tiempo_pregunta_seg' => $restantes > 0 || $pregunta !== null
+                    ? TiempoPregunta::segundos($procesoPrueba->prueba?->familia)
+                    : 0,
+            ],
+            'prueba' => [
+                'id' => $procesoPrueba->prueba->id,
+                'codigo' => $procesoPrueba->prueba->codigo,
+                'nombre' => $procesoPrueba->prueba->nombre,
+                'descripcion' => $procesoPrueba->prueba->descripcion,
+            ],
+            'progreso' => [
+                'respondidas' => $cerradas,
+                'total' => $total,
+            ],
+            'preguntas' => $pregunta === null ? [] : [[
+                'id' => $pregunta->id,
+                'orden' => $pregunta->orden,
+                'enunciado' => $pregunta->enunciado,
+                'imagen_url' => $imagenUrl,
+                'opciones' => $pregunta->opciones->map(fn ($opcion) => [
+                    'id' => $opcion->id,
+                    'etiqueta' => $opcion->etiqueta,
+                    'texto' => $opcion->texto,
+                ])->values(),
+            ]],
+        ];
     }
 
     /**
@@ -690,10 +820,13 @@ class EvaluacionController extends Controller
         );
 
         return response()->json([
-            'mensaje' => 'Respuesta guardada con éxito.',
+            'mensaje' => $respuesta->expirada
+                ? 'El tiempo de la pregunta terminó.'
+                : 'Respuesta guardada con éxito.',
             'data' => [
                 'pregunta_id' => $respuesta->pregunta_id,
                 'opcion_id' => $respuesta->opcion_id,
+                'expirada' => (bool) $respuesta->expirada,
                 'respondida_en' => $respuesta->respondida_en,
             ],
         ]);
@@ -716,11 +849,17 @@ class EvaluacionController extends Controller
         $diagnosticoPurdue = null;
         $diagnosticoHabilidadesBlandas = null;
 
-        $codigoPrueba = $intento->procesoPrueba?->prueba?->codigo;
+        $codigoPrueba = AsignacionPrueba::query()
+            ->where('postulacion_id', $intento->postulacion_id)
+            ->where('proceso_prueba_id', $intento->proceso_prueba_id)
+            ->with('prueba')
+            ->first()
+            ?->prueba
+            ?->codigo ?? $intento->procesoPrueba?->prueba?->codigo;
 
-        if ($codigoPrueba === 'TEST_INTELIGENCIA') {
+        if (in_array($codigoPrueba, ['ES_USTED_MUY_HABIL', 'DOMINOS_D48', 'RAVEN', 'TEST_INTELIGENCIA'], true)) {
             $diagnosticoInteligencia = $this->diagnosticoInteligencia((float) $resultado->puntaje_bruto, (float) $resultado->puntaje_maximo);
-        } elseif ($codigoPrueba === 'TEST_INTELIGENCIA_EMOCIONAL') {
+        } elseif (in_array($codigoPrueba, ['TMMS_24', 'TEST_INTELIGENCIA_EMOCIONAL'], true)) {
             $diagnosticoEmocional = $this->diagnosticoInteligenciaEmocional($intento, $intento->postulacion);
         } elseif ($codigoPrueba === 'TEST_LECTURA_COMPRENSIVA') {
             $diagnosticoLectura = $this->diagnosticoLecturaComprensiva((float) $resultado->puntaje_bruto, (float) $resultado->puntaje_maximo);

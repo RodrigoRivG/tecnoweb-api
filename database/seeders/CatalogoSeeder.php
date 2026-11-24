@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Catalogos\DimensionesInforme;
+use App\Catalogos\LibrosPrueba;
 use App\Models\Etapa;
 use App\Models\ParametroSistema;
 use App\Models\Prueba;
@@ -24,12 +26,12 @@ class CatalogoSeeder extends Seeder
     {
         DB::transaction(function (): void {
             Rol::query()->upsert([
-                ['codigo' => 'ADMIN', 'nombre' => 'Administrador de la consultora', 'descripcion' => 'Configura procesos, pruebas, ranking y solicitudes'],
-                ['codigo' => 'AYUDANTE', 'nombre' => 'Ayudante / junior de carrera', 'descripcion' => 'Revisa tareas manuales: CV, entrevista y antecedentes'],
-                ['codigo' => 'EGRESADO', 'nombre' => 'Egresado UAGRM', 'descripcion' => 'Postula al talento universitario'],
-                ['codigo' => 'CANDIDATO_EXTERNO', 'nombre' => 'Candidato de empresa', 'descripcion' => 'Persona invitada por una empresa cliente'],
-                ['codigo' => 'EMPRESA', 'nombre' => 'Empresa cliente', 'descripcion' => 'Solicita evaluaciones y recibe informes'],
-            ], ['codigo'], ['nombre', 'descripcion']);
+                ['codigo' => 'ADMIN', 'nombre' => 'Administrador de la consultora', 'descripcion' => 'Configura procesos, pruebas, ranking y solicitudes', 'es_panel' => true, 'alcance_carrera' => false],
+                ['codigo' => 'AYUDANTE', 'nombre' => 'Ayudante / junior de carrera', 'descripcion' => 'Revisa tareas manuales: CV, entrevista y antecedentes', 'es_panel' => true, 'alcance_carrera' => true],
+                ['codigo' => 'EGRESADO', 'nombre' => 'Egresado UAGRM', 'descripcion' => 'Postula al talento universitario', 'es_panel' => false, 'alcance_carrera' => false],
+                ['codigo' => 'CANDIDATO_EXTERNO', 'nombre' => 'Candidato de empresa', 'descripcion' => 'Persona invitada por una empresa cliente', 'es_panel' => false, 'alcance_carrera' => false],
+                ['codigo' => 'EMPRESA', 'nombre' => 'Empresa cliente', 'descripcion' => 'Solicita evaluaciones y recibe informes', 'es_panel' => false, 'alcance_carrera' => false],
+            ], ['codigo'], ['nombre', 'descripcion', 'es_panel', 'alcance_carrera']);
 
             Etapa::query()->upsert([
                 ['codigo' => 'INSCRIPCION', 'nombre' => 'Inscripción', 'ejecucion' => 'AUTOMATICA', 'descripcion' => 'Registro del postulante'],
@@ -44,36 +46,52 @@ class CatalogoSeeder extends Seeder
                 ['codigo' => 'INFORME', 'nombre' => 'Informe y recomendaciones', 'ejecucion' => 'MANUAL', 'descripcion' => 'Informe final a la empresa'],
             ], ['codigo'], ['nombre', 'ejecucion', 'descripcion']);
 
-            $dimensiones = [
-                'SOCIABILIDAD' => 'Sociabilidad', 'CAPACIDAD_ESCOLAR' => 'Capacidad escolar',
-                'ESTABILIDAD_EMOCIONAL' => 'Estabilidad emocional', 'SUMISION' => 'Sumisión',
-                'RETRAIMIENTO' => 'Retraimiento', 'SUPEREGO' => 'Superego', 'TIMIDEZ' => 'Timidez',
-                'SEVERIDAD' => 'Severidad', 'CONFIANZA' => 'Confianza', 'OBJETIVIDAD' => 'Objetividad',
-                'INGENUIDAD' => 'Ingenuidad', 'SEGURIDAD_DE_SI_MISMO' => 'Seguridad de sí mismo',
-                'CONSERVADURISMO' => 'Conservadurismo', 'DEPENDENCIA_GRUPAL' => 'Dependencia grupal',
-                'INDIFERENCIA' => 'Indiferencia', 'TRANQUILIDAD' => 'Tranquilidad',
-            ];
-            $orden = 1;
             DB::table('dimension_evaluada')->upsert(
-                collect($dimensiones)->map(fn (string $nombre, string $codigo): array => [
-                    'codigo' => $codigo, 'nombre' => $nombre, 'tipo' => 'PERSONALIDAD', 'orden' => $orden++,
-                ])->values()->all(),
+                collect(DimensionesInforme::factores16Pf())->map(fn (array $factor): array => [
+                    'codigo' => $factor['codigo'],
+                    'factor' => $factor['factor'],
+                    'nombre' => $factor['nombre'],
+                    'polo_bajo' => $factor['polo_bajo'],
+                    'polo_alto' => $factor['polo_alto'],
+                    'tipo' => 'PERSONALIDAD',
+                    'orden' => $factor['orden'],
+                ])->all(),
+                ['codigo'],
+                ['factor', 'nombre', 'polo_bajo', 'polo_alto', 'tipo', 'orden'],
+            );
+
+            DB::table('dimension_evaluada')->upsert(
+                collect(DimensionesInforme::habilidadesBlandas())->map(fn (array $dimension): array => [
+                    'codigo' => $dimension['codigo'],
+                    'nombre' => $dimension['nombre'],
+                    'tipo' => 'HABILIDAD_BLANDA',
+                    'orden' => $dimension['orden'],
+                ])->all(),
                 ['codigo'],
                 ['nombre', 'tipo', 'orden'],
             );
 
             Prueba::query()->upsert([
-                ['codigo' => 'PPA', 'nombre' => 'Promedio ponderado histórico', 'tipo' => 'CALCULADA', 'descripcion' => 'Filtro del flujo A: compara el PPA con el mínimo de la facultad'],
-                ['codigo' => 'CV_ANALISIS', 'nombre' => 'Análisis de currículum', 'tipo' => 'RUBRICA', 'descripcion' => 'Revisión manual con rúbrica'],
-                ['codigo' => 'TEST_PERSONALIDAD', 'nombre' => 'Test de personalidad', 'tipo' => 'TEST', 'descripcion' => 'Obligatorio; genera el gráfico de perfil'],
-                ['codigo' => 'TEST_INTELIGENCIA', 'nombre' => 'Test de inteligencia', 'tipo' => 'TEST', 'descripcion' => 'Obligatorio; matrices de figuras'],
-                ['codigo' => 'TEST_INTELIGENCIA_EMOCIONAL', 'nombre' => 'Test de inteligencia emocional', 'tipo' => 'TEST', 'descripcion' => 'Obligatorio'],
-                ['codigo' => 'TEST_LECTURA_COMPRENSIVA', 'nombre' => 'Test de habilidades y aptitudes específicas', 'tipo' => 'TEST', 'descripcion' => 'Evaluación de habilidades y aptitudes profesionales específicas (análisis de textos técnicos, precisión y criterio profesional)'],
-                ['codigo' => 'TEST_PURDUE_NO_VERBAL', 'nombre' => 'Test no verbal de Purdue (Forma B)', 'tipo' => 'TEST', 'descripcion' => 'Aptitud espacial y mecánica para profesiones técnicas y de ingeniería'],
-                ['codigo' => 'TEST_APTITUD_NUMERICA', 'nombre' => 'Test de aptitud numérica', 'tipo' => 'TEST', 'descripcion' => null],
-                ['codigo' => 'TEST_HABILIDADES_BLANDAS', 'nombre' => 'Test de habilidades blandas', 'tipo' => 'TEST', 'descripcion' => 'Genera el gráfico de habilidades'],
-                ['codigo' => 'ENTREVISTA', 'nombre' => 'Entrevista', 'tipo' => 'RUBRICA', 'descripcion' => 'Formulario completado por el junior de la carrera'],
-            ], ['codigo'], ['nombre', 'tipo', 'descripcion']);
+                ['codigo' => 'PPA', 'nombre' => 'Promedio ponderado histórico', 'tipo' => 'CALCULADA', 'familia' => null, 'descripcion' => 'Filtro del flujo A: compara el PPA con el mínimo de la facultad', 'limite_preguntas' => null, 'tiempo_limite_seg' => null],
+                ['codigo' => 'CV_ANALISIS', 'nombre' => 'Análisis de currículum', 'tipo' => 'RUBRICA', 'familia' => null, 'descripcion' => 'Revisión manual con rúbrica', 'limite_preguntas' => null, 'tiempo_limite_seg' => null],
+                ['codigo' => 'ENTREVISTA', 'nombre' => 'Entrevista', 'tipo' => 'RUBRICA', 'familia' => null, 'descripcion' => 'Formulario completado por el junior de la carrera', 'limite_preguntas' => null, 'tiempo_limite_seg' => null],
+            ], ['codigo'], ['nombre', 'tipo', 'familia', 'descripcion', 'limite_preguntas', 'tiempo_limite_seg']);
+
+            foreach (LibrosPrueba::definiciones() as $libro) {
+                Prueba::query()->updateOrCreate(
+                    ['codigo' => $libro['codigo']],
+                    [
+                        'nombre' => $libro['nombre'],
+                        'tipo' => 'TEST',
+                        'familia' => $libro['familia'],
+                        'descripcion' => $libro['descripcion'],
+                        'es_plantilla' => true,
+                        'activa' => true,
+                        'limite_preguntas' => null,
+                        'tiempo_limite_seg' => $libro['tiempo_limite_seg'],
+                    ],
+                );
+            }
 
             $pruebaCv = Prueba::query()->where('codigo', 'CV_ANALISIS')->valueOrFail('id');
             DB::table('rubrica_criterio')->upsert(
@@ -87,7 +105,7 @@ class CatalogoSeeder extends Seeder
 
             $pruebaEntrevista = Prueba::query()->where('codigo', 'ENTREVISTA')->valueOrFail('id');
             DB::table('rubrica_criterio')->upsert(
-                collect(['Dominio Técnico', 'Desenvolvimiento y Comunicación', 'Motivación e Interés', 'Solución de Casos'])
+                collect(['Presencia', 'Vocabulario', 'Seguridad', 'Conocimientos técnicos'])
                     ->map(fn (string $nombre, int $indice): array => [
                         'prueba_id' => $pruebaEntrevista, 'nombre' => $nombre, 'puntaje_maximo' => '10.00', 'orden' => $indice + 1,
                     ])->all(),

@@ -3,12 +3,14 @@
 namespace App\Actions\Evaluacion;
 
 use App\Enums\EstadoIntento;
+use App\Models\AsignacionPrueba;
 use App\Models\IntentoPrueba;
 use App\Models\OpcionPregunta;
 use App\Models\Pregunta;
 use App\Models\RespuestaIntento;
 use App\Models\Usuario;
 use App\Support\Auditoria;
+use App\Support\TiempoPregunta;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -29,22 +31,18 @@ class GuardarRespuestaIntento
         }
 
         $procesoPrueba = $intento->procesoPrueba;
-        if ($procesoPrueba->tiempo_maximo_seg !== null) {
-            $segundosTranscurridos = now()->diffInSeconds($intento->iniciado_en);
-            if ($segundosTranscurridos > $procesoPrueba->tiempo_maximo_seg) {
-                $intento->update([
-                    'estado' => EstadoIntento::Expirado,
-                    'finalizado_en' => now(),
-                ]);
+        $pruebaAsignada = AsignacionPrueba::query()
+            ->with('prueba')
+            ->where('postulacion_id', $intento->postulacion_id)
+            ->where('proceso_prueba_id', $procesoPrueba->id)
+            ->first()
+            ?->prueba ?? $procesoPrueba->prueba;
+        $limitePregunta = TiempoPregunta::segundos($pruebaAsignada?->familia);
 
-                throw ValidationException::withMessages([
-                    'tiempo' => 'El tiempo límite asignado para la evaluación ha expirado.',
-                ]);
-            }
-        }
+        $pruebaId = $pruebaAsignada?->id ?? $procesoPrueba->prueba_id;
 
         $pregunta = Pregunta::where('id', $preguntaId)
-            ->where('prueba_id', $procesoPrueba->prueba_id)
+            ->where('prueba_id', $pruebaId)
             ->first();
 
         if (! $pregunta) {
@@ -70,13 +68,41 @@ class GuardarRespuestaIntento
             ]);
         }
 
-        return Auditoria::comoUsuario($usuario->id, function () use ($intento, $pregunta, $opcion): RespuestaIntento {
-            $existe = DB::table('talento.respuesta_intento')
+        return Auditoria::comoUsuario($usuario->id, function () use ($intento, $pregunta, $opcion, $limitePregunta): RespuestaIntento {
+            $fila = DB::table('talento.respuesta_intento')
                 ->where('intento_id', $intento->id)
                 ->where('pregunta_id', $pregunta->id)
-                ->exists();
+                ->first();
 
-            if ($existe) {
+            if ($fila !== null && filter_var($fila->expirada, FILTER_VALIDATE_BOOLEAN)) {
+                return RespuestaIntento::where('intento_id', $intento->id)
+                    ->where('pregunta_id', $pregunta->id)
+                    ->firstOrFail();
+            }
+
+            if ($fila !== null && $fila->opcion_id !== null) {
+                throw ValidationException::withMessages([
+                    'opcion_id' => 'La respuesta ya quedó registrada y no se puede modificar.',
+                ]);
+            }
+
+            if (TiempoPregunta::vencido($intento->pregunta_actual_iniciada_en, $limitePregunta, true)) {
+                DB::table('talento.respuesta_intento')
+                    ->where('intento_id', $intento->id)
+                    ->where('pregunta_id', $pregunta->id)
+                    ->update([
+                        'expirada' => true,
+                        'respondida_en' => now(),
+                        'updated_at' => now(),
+                    ]);
+                $intento->update(['pregunta_actual_iniciada_en' => null]);
+
+                return RespuestaIntento::where('intento_id', $intento->id)
+                    ->where('pregunta_id', $pregunta->id)
+                    ->firstOrFail();
+            }
+
+            if ($fila !== null) {
                 DB::table('talento.respuesta_intento')
                     ->where('intento_id', $intento->id)
                     ->where('pregunta_id', $pregunta->id)
@@ -90,11 +116,14 @@ class GuardarRespuestaIntento
                     'intento_id' => $intento->id,
                     'pregunta_id' => $pregunta->id,
                     'opcion_id' => $opcion->id,
+                    'expirada' => false,
                     'respondida_en' => now(),
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
             }
+
+            $intento->update(['pregunta_actual_iniciada_en' => null]);
 
             return RespuestaIntento::where('intento_id', $intento->id)
                 ->where('pregunta_id', $pregunta->id)

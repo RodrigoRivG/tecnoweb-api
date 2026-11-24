@@ -6,6 +6,8 @@ enum EstadoProceso: string
 {
     case Borrador = 'BORRADOR';
     case Configuracion = 'CONFIGURACION';
+    case PendienteAprobacion = 'PENDIENTE_APROBACION';
+    case EnCurso = 'EN_CURSO';
     case Abierto = 'ABIERTO';
     case EnEvaluacion = 'EN_EVALUACION';
     case Cerrado = 'CERRADO';

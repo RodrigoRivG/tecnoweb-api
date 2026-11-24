@@ -2,7 +2,11 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\Actions\Banco\PublicarLibro;
+use App\Enums\FamiliaPrueba;
 use App\Enums\TipoPrueba;
+use App\Models\Carrera;
+use App\Models\ConfiguracionFamilia;
 use App\Http\Controllers\Controller;
 use App\Models\Archivo;
 use App\Models\DimensionEvaluada;
@@ -12,10 +16,11 @@ use App\Models\Prueba;
 use App\Models\RespuestaIntento;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Support\AlmacenImagenPregunta;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class PreguntaAdminController extends Controller
 {
@@ -69,6 +74,7 @@ class PreguntaAdminController extends Controller
                     'codigo' => $d->codigo,
                     'nombre' => $d->nombre,
                     'tipo' => $d->tipo,
+                    'factor' => $d->factor,
                     'orden' => $d->orden,
                 ]),
                 'resumen' => [
@@ -76,6 +82,81 @@ class PreguntaAdminController extends Controller
                     'total_preguntas' => $totalPreguntas,
                     'total_dimensiones' => $dimensiones->count(),
                 ],
+            ],
+        ]);
+    }
+
+    /**
+     * Familia, libros y carreras para auditar el banco.
+     */
+    public function jerarquia(): JsonResponse
+    {
+        $libros = Prueba::query()
+            ->where('tipo', TipoPrueba::Test)
+            ->with(['carreras:id,nombre'])
+            ->withCount('preguntas')
+            ->orderBy('codigo')
+            ->get()
+            ->groupBy(fn (Prueba $prueba) => $prueba->familia?->value);
+
+        $tiempos = ConfiguracionFamilia::query()->get()->mapWithKeys(
+            fn (ConfiguracionFamilia $config) => [$config->familia->value => $config->tiempo_pregunta_seg],
+        );
+
+        $familias = collect(FamiliaPrueba::cases())->map(function (FamiliaPrueba $familia) use ($libros, $tiempos) {
+            $grupo = $libros->get($familia->value, collect());
+
+            return [
+                'codigo' => $familia->value,
+                'nombre' => $familia->etiqueta(),
+                'modo' => $familia->modo(),
+                'modo_etiqueta' => $familia->alterna() ? 'Alterna' : 'Por carrera',
+                'tiempo_pregunta_seg' => (int) ($tiempos[$familia->value] ?? 60),
+                'libros' => $grupo->count(),
+                'detalle' => $grupo->map(fn (Prueba $prueba) => [
+                    'id' => $prueba->id,
+                    'codigo' => $prueba->codigo,
+                    'nombre' => $prueba->nombre,
+                    'descripcion' => $prueba->descripcion,
+                    'activa' => $prueba->activa,
+                    'preguntas' => $prueba->preguntas_count,
+                    'tiempo_limite_seg' => $prueba->tiempo_limite_seg,
+                    'carreras' => $prueba->carreras->map(fn ($carrera) => [
+                        'id' => $carrera->id,
+                        'nombre' => $carrera->nombre,
+                    ])->values(),
+                ])->values(),
+            ];
+        })->values();
+
+        return response()->json(['data' => $familias]);
+    }
+
+    /**
+     * Cambia los segundos de cada pregunta para todos los libros de la familia.
+     */
+    public function actualizarTiempoFamilia(Request $request, string $familia): JsonResponse
+    {
+        $caso = FamiliaPrueba::tryFrom($familia);
+        if ($caso === null) {
+            throw ValidationException::withMessages([
+                'familia' => 'La familia indicada no existe.',
+            ]);
+        }
+
+        $datos = $request->validate([
+            'tiempo_pregunta_seg' => ['required', 'integer', 'min:5', 'max:3600'],
+        ]);
+
+        $config = ConfiguracionFamilia::query()->updateOrCreate(
+            ['familia' => $caso],
+            ['tiempo_pregunta_seg' => $datos['tiempo_pregunta_seg']],
+        );
+
+        return response()->json([
+            'data' => [
+                'familia' => $caso->value,
+                'tiempo_pregunta_seg' => $config->tiempo_pregunta_seg,
             ],
         ]);
     }
@@ -94,7 +175,7 @@ class PreguntaAdminController extends Controller
             ->where('prueba_id', $pruebaId)
             ->with([
                 'prueba:id,codigo,nombre,activa',
-                'dimension:id,codigo,nombre,tipo',
+                'dimension:id,codigo,factor,nombre,tipo',
                 'opciones',
                 'imagen',
             ])
@@ -112,7 +193,7 @@ class PreguntaAdminController extends Controller
             });
         }
 
-        $perPage = max(5, min(100, $request->integer('per_page', 10)));
+        $perPage = max(5, min(500, $request->integer('per_page', 10)));
         $paginado = $query->orderBy('orden')->orderBy('id')->paginate($perPage);
 
         return response()->json([
@@ -131,6 +212,10 @@ class PreguntaAdminController extends Controller
                     'codigo' => $p->dimension->codigo,
                     'nombre' => $p->dimension->nombre,
                     'tipo' => $p->dimension->tipo,
+                    'factor' => $p->dimension->factor,
+                    'etiqueta' => $p->dimension->factor
+                        ? 'Factor '.$p->dimension->factor.' - '.$p->dimension->nombre
+                        : $p->dimension->nombre,
                 ] : null,
                 'orden' => $p->orden,
                 'enunciado' => $p->enunciado,
@@ -176,28 +261,7 @@ class PreguntaAdminController extends Controller
             'imagen.max' => 'La imagen no debe exceder los 5MB de tamaño.',
         ]);
 
-        $file = $request->file('imagen');
-        $extension = $file->getClientOriginalExtension() ?: 'png';
-        $filename = 'pregunta_' . date('Ymd_His') . '_' . Str::random(8) . '.' . $extension;
-
-        $dir = public_path('pruebas/uploads');
-        if (!File::isDirectory($dir)) {
-            File::makeDirectory($dir, 0755, true, true);
-        }
-
-        $file->move($dir, $filename);
-        $rutaFinal = $dir . DIRECTORY_SEPARATOR . $filename;
-        $claveAlmacenamiento = "pruebas/uploads/{$filename}";
-        $hash = hash_file('sha256', $rutaFinal);
-
-        $archivo = Archivo::create([
-            'nombre_original' => Str::limit($file->getClientOriginalName(), 250, ''),
-            'clave_almacenamiento' => $claveAlmacenamiento,
-            'mime_type' => $file->getClientMimeType() ?: 'image/png',
-            'tamano_bytes' => File::size($rutaFinal),
-            'hash_sha256' => $hash,
-            'subido_por' => $request->user()?->id,
-        ]);
+        $archivo = app(AlmacenImagenPregunta::class)->guardar($request->file('imagen'), $request->user()?->id);
 
         return response()->json([
             'message' => 'Imagen subida exitosamente.',
@@ -280,7 +344,7 @@ class PreguntaAdminController extends Controller
             'opciones' => ['required', 'array', 'min:2', 'max:10'],
             'opciones.*.etiqueta' => ['required', 'string', 'max:1'],
             'opciones.*.texto' => ['required', 'string', 'max:500'],
-            'opciones.*.puntaje' => ['required', 'numeric', 'min:0', 'max:100'],
+            'opciones.*.puntaje' => ['required', 'numeric', 'min:0', 'max:5'],
         ], [
             'prueba_id.exists' => 'La prueba seleccionada no existe o no admite banco de preguntas (debe ser de tipo TEST).',
             'opciones.min' => 'La pregunta debe incluir al menos 2 opciones de respuesta.',
@@ -296,6 +360,9 @@ class PreguntaAdminController extends Controller
                 'message' => 'La pregunta debe incluir al menos un enunciado escrito o una imagen ilustrativa.',
             ], 422);
         }
+
+        $libro = Prueba::query()->findOrFail($validados['prueba_id']);
+        $this->exigirDimension($libro, $validados['dimension_id'] ?? null);
 
         // Verificar que no existan etiquetas duplicadas en la lista de opciones
         $etiquetas = array_map(fn ($o) => strtoupper(trim((string) $o['etiqueta'])), $validados['opciones']);
@@ -383,7 +450,7 @@ class PreguntaAdminController extends Controller
             'opciones.*.id' => ['nullable', 'integer'],
             'opciones.*.etiqueta' => ['required', 'string', 'max:1'],
             'opciones.*.texto' => ['required', 'string', 'max:500'],
-            'opciones.*.puntaje' => ['required', 'numeric', 'min:0', 'max:100'],
+            'opciones.*.puntaje' => ['required', 'numeric', 'min:0', 'max:5'],
         ]);
 
         $enunciadoTexto = isset($validados['enunciado']) ? trim($validados['enunciado']) : $pregunta->enunciado;
@@ -394,6 +461,9 @@ class PreguntaAdminController extends Controller
                 'message' => 'La pregunta debe incluir al menos un enunciado escrito o una imagen ilustrativa.',
             ], 422);
         }
+
+        $dimensionId = array_key_exists('dimension_id', $validados) ? $validados['dimension_id'] : $pregunta->dimension_id;
+        $this->exigirDimension($pregunta->prueba, $dimensionId);
 
         // Validar orden único si ha cambiado
         $nuevoOrden = $validados['orden'] ?? $pregunta->orden;
@@ -432,9 +502,9 @@ class PreguntaAdminController extends Controller
             }
         }
 
-        DB::transaction(function () use ($pregunta, $validados, $nuevoOrden, $enunciadoTexto, $imagenId) {
+        DB::transaction(function () use ($pregunta, $validados, $nuevoOrden, $enunciadoTexto, $imagenId, $dimensionId) {
             $pregunta->update([
-                'dimension_id' => $validados['dimension_id'] ?? null,
+                'dimension_id' => $dimensionId,
                 'orden' => $nuevoOrden,
                 'enunciado' => !empty($enunciadoTexto) ? $enunciadoTexto : null,
                 'imagen_archivo_id' => $imagenId,
@@ -557,5 +627,163 @@ class PreguntaAdminController extends Controller
                 'activa' => $prueba->activa,
             ],
         ]);
+    }
+
+    /**
+     * Crea un libro dentro de una familia. Si queda activo, entra al sorteo o al pool de sus carreras.
+     */
+    public function storePrueba(Request $request, PublicarLibro $publicar): JsonResponse
+    {
+        $datos = $this->validarLibro($request);
+        $familia = FamiliaPrueba::from($datos['familia']);
+        $codigo = $this->codigoLibre($datos['nombre'], $datos['codigo'] ?? null);
+
+        $prueba = DB::transaction(function () use ($datos, $familia, $codigo) {
+            $libro = Prueba::query()->create([
+                'codigo' => $codigo,
+                'nombre' => trim($datos['nombre']),
+                'tipo' => TipoPrueba::Test,
+                'familia' => $familia,
+                'descripcion' => $datos['descripcion'] ?? null,
+                'es_plantilla' => true,
+                'activa' => $datos['activo'] ?? true,
+                'limite_preguntas' => null,
+            ]);
+
+            if ($familia === FamiliaPrueba::HabilidadEspecifica) {
+                $libro->carreras()->sync($datos['carrera_ids']);
+            }
+
+            return $libro;
+        });
+
+        $publicar->handle($prueba->fresh('carreras'));
+
+        return response()->json(['data' => $this->libroJson($prueba->fresh('carreras'))], 201);
+    }
+
+    /**
+     * Edita un libro y vuelve a publicarlo en las convocatorias abiertas de sus carreras.
+     */
+    public function actualizarPrueba(Request $request, Prueba $prueba, PublicarLibro $publicar): JsonResponse
+    {
+        if ($prueba->tipo !== TipoPrueba::Test) {
+            throw ValidationException::withMessages([
+                'prueba' => 'Solo se editan los libros de evaluación.',
+            ]);
+        }
+
+        $datos = $this->validarLibro($request, $prueba);
+        $familia = FamiliaPrueba::from($datos['familia']);
+
+        DB::transaction(function () use ($prueba, $datos, $familia): void {
+            $prueba->update([
+                'codigo' => $this->codigoLibre($datos['nombre'], $datos['codigo'] ?? $prueba->codigo, $prueba->id),
+                'nombre' => trim($datos['nombre']),
+                'familia' => $familia,
+                'descripcion' => $datos['descripcion'] ?? null,
+                'activa' => $datos['activo'] ?? $prueba->activa,
+            ]);
+
+            if ($familia === FamiliaPrueba::HabilidadEspecifica) {
+                $prueba->carreras()->sync($datos['carrera_ids']);
+            } else {
+                $prueba->carreras()->detach();
+            }
+        });
+
+        $publicar->handle($prueba->fresh('carreras'));
+
+        return response()->json(['data' => $this->libroJson($prueba->fresh('carreras'))]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validarLibro(Request $request, ?Prueba $actual = null): array
+    {
+        $datos = $request->validate([
+            'codigo' => ['nullable', 'string', 'max:50'],
+            'nombre' => ['required', 'string', 'max:120'],
+            'descripcion' => ['nullable', 'string', 'max:1000'],
+            'familia' => ['required', Rule::enum(FamiliaPrueba::class)],
+            'activo' => ['sometimes', 'boolean'],
+            'carrera_ids' => ['nullable', 'array'],
+            'carrera_ids.*' => ['integer', Rule::exists(Carrera::class, 'id')],
+        ]);
+
+        if (($datos['familia'] ?? null) === FamiliaPrueba::HabilidadEspecifica->value && empty($datos['carrera_ids'])) {
+            throw ValidationException::withMessages([
+                'carrera_ids' => 'Un libro de habilidad específica debe vincularse al menos a una carrera.',
+            ]);
+        }
+
+        if ($actual !== null && $datos['familia'] !== $actual->familia?->value && $actual->preguntas()->exists()) {
+            throw ValidationException::withMessages([
+                'familia' => 'No se puede cambiar la familia de un libro que ya tiene preguntas.',
+            ]);
+        }
+
+        return $datos;
+    }
+
+    private function codigoLibre(string $nombre, ?string $pedido, ?int $ignorarId = null): string
+    {
+        $base = trim((string) $pedido) !== ''
+            ? strtoupper(trim((string) $pedido))
+            : strtoupper((string) Str::slug($nombre, '_'));
+        $base = substr((string) preg_replace('/[^A-Z0-9_]/', '', $base), 0, 46);
+        if ($base === '') {
+            $base = 'LIBRO';
+        }
+
+        $codigo = $base;
+        $sufijo = 2;
+        while (Prueba::query()
+            ->where('codigo', $codigo)
+            ->when($ignorarId, fn ($consulta) => $consulta->where('id', '!=', $ignorarId))
+            ->exists()) {
+            $codigo = $base.'_'.$sufijo;
+            $sufijo++;
+        }
+
+        return $codigo;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function libroJson(Prueba $prueba): array
+    {
+        $prueba->loadCount('preguntas');
+
+        return [
+            'id' => $prueba->id,
+            'codigo' => $prueba->codigo,
+            'nombre' => $prueba->nombre,
+            'descripcion' => $prueba->descripcion,
+            'familia' => $prueba->familia?->value,
+            'activa' => $prueba->activa,
+            'preguntas' => $prueba->preguntas_count,
+            'carreras' => $prueba->carreras->map(fn (Carrera $carrera) => [
+                'id' => $carrera->id,
+                'nombre' => $carrera->nombre,
+            ])->values(),
+        ];
+    }
+
+    private function exigirDimension(Prueba $prueba, mixed $dimensionId): void
+    {
+        $familia = $prueba->familia;
+        if ($familia !== FamiliaPrueba::Personalidad && $familia !== FamiliaPrueba::HabilidadBlanda) {
+            return;
+        }
+
+        $dimension = $dimensionId ? DimensionEvaluada::query()->find($dimensionId) : null;
+        if ($dimension === null || $dimension->tipo !== $familia->value) {
+            throw ValidationException::withMessages([
+                'dimension_id' => 'Esta familia exige el factor o la dimensión del ítem.',
+            ]);
+        }
     }
 }

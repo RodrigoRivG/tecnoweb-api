@@ -16,7 +16,7 @@ class BancoPreguntasHabilidadesBlandasSeeder extends Seeder
      */
     private const DIMENSIONES = [
         'COMUNICACION_ASERTIVA' => [
-            'nombre' => 'Comunicación Asertiva',
+            'nombre' => 'Comunicación asertiva',
             'orden' => 20,
             'preguntas' => [
                 'Expreso mis opiniones e ideas con claridad, seguridad y respeto, incluso cuando difieren de los demás.',
@@ -27,7 +27,7 @@ class BancoPreguntasHabilidadesBlandasSeeder extends Seeder
             ],
         ],
         'TRABAJO_EN_EQUIPO' => [
-            'nombre' => 'Trabajo en Equipo y Cooperación',
+            'nombre' => 'Trabajo en equipo',
             'orden' => 21,
             'preguntas' => [
                 'Comparto voluntariamente mis conocimientos y recursos para facilitar el logro de las metas grupales.',
@@ -38,7 +38,7 @@ class BancoPreguntasHabilidadesBlandasSeeder extends Seeder
             ],
         ],
         'RESOLUCION_CONFLICTOS' => [
-            'nombre' => 'Resolución de Conflictos y Negociación',
+            'nombre' => 'Resolución de conflictos',
             'orden' => 22,
             'preguntas' => [
                 'Mantengo la calma y la objetividad frente a desacuerdos o discusiones tensas en el entorno laboral.',
@@ -49,7 +49,7 @@ class BancoPreguntasHabilidadesBlandasSeeder extends Seeder
             ],
         ],
         'ADAPTABILIDAD' => [
-            'nombre' => 'Adaptabilidad y Resiliencia',
+            'nombre' => 'Adaptabilidad',
             'orden' => 23,
             'preguntas' => [
                 'Acepto los cambios en planes o prioridades con rapidez y actitud positiva sin perder la motivación.',
@@ -60,7 +60,7 @@ class BancoPreguntasHabilidadesBlandasSeeder extends Seeder
             ],
         ],
         'LIDERAZGO_INICIATIVA' => [
-            'nombre' => 'Liderazgo e Iniciativa / Proactividad',
+            'nombre' => 'Liderazgo',
             'orden' => 24,
             'preguntas' => [
                 'Tomo la iniciativa para resolver problemas o proponer mejoras sin esperar que otros me lo indiquen.',

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Attributes\Table;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laravel\Sanctum\HasApiTokens;
@@ -72,6 +73,17 @@ class Usuario extends Authenticatable
         return $this->hasOne(Persona::class);
     }
 
+    /**
+     * Carreras que atiende cuando su rol tiene alcance por carrera.
+     *
+     * @return BelongsToMany<Carrera, $this>
+     */
+    public function carreras(): BelongsToMany
+    {
+        return $this->belongsToMany(Carrera::class, 'talento.ayudante_carrera', 'usuario_id', 'carrera_id')
+            ->withTimestamps();
+    }
+
     public function tieneRol(CodigoRol ...$roles): bool
     {
         return in_array($this->rol->codigo, array_map(fn (CodigoRol $rol): string => $rol->value, $roles), true);
@@ -97,5 +109,42 @@ class Usuario extends Authenticatable
         }
 
         return false;
+    }
+
+    /**
+     * Códigos que el cliente usa para mostrar u ocultar pantallas.
+     * El administrador recibe el catálogo completo aunque la matriz esté vacía.
+     *
+     * @return list<string>
+     */
+    public function codigosPermiso(): array
+    {
+        if ($this->rol?->codigo === CodigoRol::Admin->value) {
+            return Permiso::query()->orderBy('id')->pluck('codigo')->all();
+        }
+
+        if (! $this->relationLoaded('rol.permisos')) {
+            $this->load('rol.permisos');
+        }
+
+        return $this->rol?->permisos?->pluck('codigo')->values()->all() ?? [];
+    }
+
+    /**
+     * Sin carreras asignadas el alcance queda abierto. Con alguna, solo esas carreras.
+     */
+    public function abarcaCarrera(?int $carreraId): bool
+    {
+        if (! $this->rol?->alcance_carrera) {
+            return true;
+        }
+
+        $ids = $this->carreras()->pluck('carrera.id');
+
+        if ($ids->isEmpty()) {
+            return true;
+        }
+
+        return $carreraId !== null && $ids->contains($carreraId);
     }
 }

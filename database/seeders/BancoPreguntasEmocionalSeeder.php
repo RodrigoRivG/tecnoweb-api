@@ -60,16 +60,16 @@ class BancoPreguntasEmocionalSeeder extends Seeder
 
     public function run(): void
     {
-        $prueba = Prueba::query()->where('codigo', 'TEST_INTELIGENCIA_EMOCIONAL')->firstOrFail();
+        $prueba = Prueba::query()->where('codigo', 'TMMS_24')->firstOrFail();
 
         $this->command?->info("Poblando banco de preguntas para la prueba [{$prueba->codigo}] (ID: {$prueba->id})...");
 
         DB::transaction(function () use ($prueba) {
             // 1. Asegurar la existencia de las 3 dimensiones emocionales en talento.dimension_evaluada
             $dimensiones = [
-                'ATENCION_EMOCIONAL' => ['nombre' => 'Atención a las emociones', 'tipo' => 'HABILIDAD_BLANDA', 'orden' => 17],
-                'CLARIDAD_EMOCIONAL' => ['nombre' => 'Claridad de sentimientos', 'tipo' => 'HABILIDAD_BLANDA', 'orden' => 18],
-                'REPARACION_EMOCIONAL' => ['nombre' => 'Reparación de estados de ánimo', 'tipo' => 'HABILIDAD_BLANDA', 'orden' => 19],
+                'ATENCION_EMOCIONAL' => ['nombre' => 'Atención emocional', 'tipo' => 'HABILIDAD_BLANDA', 'orden' => 17],
+                'CLARIDAD_EMOCIONAL' => ['nombre' => 'Claridad emocional', 'tipo' => 'HABILIDAD_BLANDA', 'orden' => 18],
+                'REPARACION_EMOCIONAL' => ['nombre' => 'Reparación emocional', 'tipo' => 'HABILIDAD_BLANDA', 'orden' => 19],
             ];
 
             $mapaDimensiones = [];
@@ -119,4 +119,3 @@ class BancoPreguntasEmocionalSeeder extends Seeder
         $this->command?->info("✓ Se registraron exitosamente {$total} afirmaciones con escala Likert (1-5) para el Test de Inteligencia Emocional (TMMS-24).");
     }
 }
-

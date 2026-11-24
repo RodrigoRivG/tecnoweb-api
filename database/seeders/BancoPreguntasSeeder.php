@@ -18,7 +18,7 @@ class BancoPreguntasSeeder extends Seeder
     public function run(): void
     {
         DB::transaction(function (): void {
-            $pruebaPersonalidad = Prueba::where('codigo', 'TEST_PERSONALIDAD')->first();
+            $pruebaPersonalidad = Prueba::where('codigo', '16PF_FORMA_A')->first();
 
             if (! $pruebaPersonalidad) {
                 return;

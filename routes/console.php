@@ -55,8 +55,7 @@ Artisan::command('talento:sincronizar-etapas', function () {
         'INSCRIPCION' => ['prueba' => null, 'peso' => '0'],
         'EVALUACION_TECNICA' => ['prueba' => \App\Models\Prueba::PPA, 'peso' => '20'],
         'REQUISITOS' => ['prueba' => null, 'peso' => '0'],
-        'EVALUACION_PSICOLOGICA' => ['prueba' => 'TEST_PERSONALIDAD', 'peso' => '25'],
-        'HABILIDADES_BLANDAS' => ['prueba' => 'TEST_HABILIDADES_BLANDAS', 'peso' => '20'],
+        'EVALUACION_PSICOLOGICA' => ['prueba' => '16PF_FORMA_A', 'peso' => '10'],
         'ANALISIS_CV' => ['prueba' => 'CV_ANALISIS', 'peso' => '15'],
         'ENTREVISTA' => ['prueba' => 'ENTREVISTA', 'peso' => '20'],
         'SELECCION' => ['prueba' => null, 'peso' => '0'],
@@ -235,7 +234,7 @@ Artisan::command('talento:probar-habilidades-blandas {id=1}', function (int $id,
     $usuario = $postulacion->persona->usuario;
 
     $procesoPrueba = \App\Models\ProcesoPrueba::whereHas('procesoEtapa', fn ($q) => $q->where('proceso_id', $postulacion->proceso_id))
-        ->whereHas('prueba', fn ($q) => $q->where('codigo', 'TEST_HABILIDADES_BLANDAS'))
+        ->whereHas('prueba', fn ($q) => $q->where('familia', 'HABILIDAD_BLANDA'))
         ->firstOrFail();
 
     $this->info("Iniciando prueba [{$procesoPrueba->prueba->nombre}] para la postulación #{$postulacion->id}...");

@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\ModoAsignacion;
 use App\Enums\UmbralOrigen;
 use App\Models\Carrera;
 use App\Models\ConvocatoriaTalento;
@@ -29,8 +30,7 @@ class ConvocatoriaTalentoFactory extends Factory
         'INSCRIPCION' => ['prueba' => null, 'peso' => '0'],
         'EVALUACION_TECNICA' => ['prueba' => Prueba::PPA, 'peso' => '20'],
         'REQUISITOS' => ['prueba' => null, 'peso' => '0'],
-        'EVALUACION_PSICOLOGICA' => ['prueba' => 'TEST_PERSONALIDAD', 'peso' => '25'],
-        'HABILIDADES_BLANDAS' => ['prueba' => 'TEST_HABILIDADES_BLANDAS', 'peso' => '20'],
+        'EVALUACION_PSICOLOGICA' => ['prueba' => '16PF_FORMA_A', 'peso' => '25'],
         'ANALISIS_CV' => ['prueba' => 'CV_ANALISIS', 'peso' => '15'],
         'ENTREVISTA' => ['prueba' => 'ENTREVISTA', 'peso' => '20'],
         'SELECCION' => ['prueba' => null, 'peso' => '0'],
@@ -81,10 +81,14 @@ class ConvocatoriaTalentoFactory extends Factory
                 ]);
 
                 if ($configuracion['prueba'] !== null) {
+                    $codigoPrueba = $configuracion['prueba'];
                     $procesoEtapa->pruebas()->create([
-                        'prueba_id' => $pruebas[$configuracion['prueba']],
+                        'prueba_id' => $pruebas[$codigoPrueba],
+                        'modo_asignacion' => Prueba::query()->find($pruebas[$codigoPrueba])?->familia?->alterna()
+                            ? ModoAsignacion::Alterna
+                            : ModoAsignacion::Fija,
                         'peso' => $configuracion['peso'],
-                        'umbral_origen' => $configuracion['prueba'] === Prueba::PPA ? UmbralOrigen::Facultad : UmbralOrigen::Fijo,
+                        'umbral_origen' => $codigoPrueba === Prueba::PPA ? UmbralOrigen::Facultad : UmbralOrigen::Fijo,
                     ]);
                 }
             }

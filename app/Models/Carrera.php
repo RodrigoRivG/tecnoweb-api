@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Table('carrera')]
@@ -53,6 +54,14 @@ class Carrera extends Model
     public function convocatorias(): HasMany
     {
         return $this->hasMany(ConvocatoriaTalento::class);
+    }
+
+    /**
+     * @return BelongsToMany<Prueba, $this>
+     */
+    public function pruebas(): BelongsToMany
+    {
+        return $this->belongsToMany(Prueba::class, 'prueba_carrera', 'carrera_id', 'prueba_id')->withTimestamps();
     }
 
     /**

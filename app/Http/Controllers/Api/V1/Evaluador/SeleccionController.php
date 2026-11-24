@@ -78,9 +78,15 @@ class SeleccionController extends Controller
             'etapas.procesoEtapa.etapa',
         ])->findOrFail($postulacionId);
 
-        // Si el usuario es egresado, verificar que sea el dueño de la postulación
-        if ($request->user()->rol?->codigo === 'EGRESADO' && $postulacion->persona?->usuario_id !== $request->user()->id) {
+        $usuario = $request->user();
+        $esDueno = $postulacion->persona?->usuario_id === $usuario->id;
+
+        if (! $esDueno && ! $usuario->tienePermiso('postulaciones.ver')) {
             abort(403, 'No tienes permiso para ver el resultado de esta postulación.');
+        }
+
+        if (! $esDueno && ! $usuario->abarcaCarrera($postulacion->carreraId())) {
+            abort(404);
         }
 
         // Si no tiene ranking calculado, ejecutar el cálculo

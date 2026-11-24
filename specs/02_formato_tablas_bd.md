@@ -40,7 +40,7 @@ Las restricciones se nombran con la tabla completa, salvo que superen los 63 car
 - **Catálogos**: `id INTEGER GENERATED ALWAYS AS IDENTITY`.
 - **Transaccionales**: `id BIGINT GENERATED ALWAYS AS IDENTITY`.
 - **Subtipos 1:1**: la PK es la FK al padre (`convocatoria_talento.proceso_id`).
-- **Tablas puente y detalles**: PK compuesta por sus FK (`ayudante_carrera`).
+- **Tablas puente y detalles**: PK compuesta por sus FK (`rol_permiso`, `prueba_carrera`).
 - **Nunca** se inserta un `id` explícito.
 
 ### 3.3 Tipos
@@ -199,7 +199,7 @@ Para no repetir las dos columnas y el trigger en 43 migraciones, se crea un help
 | PK = FK del padre | `convocatoria_talento`, `solicitud_empresa`, `investigacion_antecedentes` | `$primaryKey = '<fk>'`, `$incrementing = false` |
 | PK de texto | `parametro_sistema` (`clave`) | `$primaryKey = 'clave'`, `$keyType = 'string'`, `$incrementing = false` |
 | PK compuesta con datos | `perfil_requerido`, `requisito_documento`, `informe_candidato` | `belongsToMany(...)->using(Pivot)->withPivot(...)->withTimestamps()` |
-| PK compuesta puente | `ayudante_carrera` | `belongsToMany(...)->withTimestamps()` |
+| PK compuesta puente | `rol_permiso`, `prueba_carrera` | `belongsToMany(...)->withTimestamps()` |
 | PK compuesta de detalle | `respuesta_intento`, `calificacion_criterio`, `resultado_dimension` | `createMany`/`upsert` desde el padre; `where(...)->update(...)` |
 
 `->withTimestamps()` es obligatorio en toda relación `belongsToMany` para que se llenen `created_at` y `updated_at` en las tablas puente.

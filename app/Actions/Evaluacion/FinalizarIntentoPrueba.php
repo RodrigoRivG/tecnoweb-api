@@ -80,6 +80,7 @@ class FinalizarIntentoPrueba
             $umbral = $procesoPrueba->puntaje_minimo ?? 50.00;
             $puntajeNormalizado = round(($puntajeBruto / $puntajeMaximo) * 100, 2);
             $aprobada = $puntajeNormalizado >= (float) $umbral;
+            $tiempoAgotado = false;
 
             // 5. Registrar resultado de la prueba
             $resultado = ResultadoPrueba::updateOrCreate(
@@ -93,16 +94,13 @@ class FinalizarIntentoPrueba
                     'puntaje_maximo' => $puntajeMaximo,
                     'umbral_aplicado' => $umbral,
                     'aprobada' => $aprobada,
-                    'motivo_no_aprobacion' => $aprobada ? null : MotivoNoAprobacion::PuntajeBajo,
+                    'motivo_no_aprobacion' => $aprobada ? null : ($tiempoAgotado ? MotivoNoAprobacion::TiempoAgotado : MotivoNoAprobacion::PuntajeBajo),
                     'calificado_en' => now(),
                 ]
             );
 
             // 5.1 Calcular y registrar valores para cada dimensión psicológica (decatipos 1-10)
-            $dimensionesIds = Pregunta::where('prueba_id', $prueba->id)
-                ->whereNotNull('dimension_id')
-                ->distinct()
-                ->pluck('dimension_id');
+            $dimensionesIds = $preguntas->pluck('dimension_id')->filter()->unique();
 
             $respuestasIntento = DB::table('talento.respuesta_intento as r')
                 ->join('talento.opcion_pregunta as o', 'r.opcion_id', '=', 'o.id')
@@ -144,6 +142,7 @@ class FinalizarIntentoPrueba
                     ],
                     [
                         'valor' => $decatipo,
+                        'puntuacion_bruta' => round($puntosObtenidosDim, 2),
                     ]
                 );
             }
@@ -191,8 +190,9 @@ class FinalizarIntentoPrueba
                 }
             }
 
+            app(AsignarInstrumentosPostulacion::class)->handle($postulacion->refresh());
+
             return $resultado;
         });
     }
 }
-
