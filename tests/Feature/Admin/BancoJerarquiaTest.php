@@ -4,8 +4,11 @@ namespace Tests\Feature\Admin;
 
 use App\Enums\CodigoRol;
 use App\Enums\FamiliaPrueba;
-use App\Models\Prueba;
+use App\Models\Carrera;
+use App\Models\ConfiguracionFamilia;
+use App\Models\Facultad;
 use App\Models\ProcesoPrueba;
+use App\Models\Prueba;
 use App\Models\Usuario;
 use Database\Seeders\AlinearBancoEvaluacionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -59,7 +62,7 @@ class BancoJerarquiaTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.tiempo_pregunta_seg', 45);
 
-        $this->assertSame(45, \App\Models\ConfiguracionFamilia::query()->where('familia', 'PERSONALIDAD')->value('tiempo_pregunta_seg'));
+        $this->assertSame(45, ConfiguracionFamilia::query()->where('familia', 'PERSONALIDAD')->value('tiempo_pregunta_seg'));
 
         $this->actingAs($admin, 'sanctum')
             ->getJson(route('admin.banco-preguntas.jerarquia'))
@@ -68,8 +71,8 @@ class BancoJerarquiaTest extends TestCase
 
     public function test_informatica_recibe_tres_libros_y_la_etapa_blanda_no_se_duplica(): void
     {
-        $carrera = \App\Models\Carrera::factory()
-            ->for(\App\Models\Facultad::factory()->state(['ppa_minimo' => '51.00']))
+        $carrera = Carrera::factory()
+            ->for(Facultad::factory()->state(['ppa_minimo' => '51.00']))
             ->create(['nombre' => 'Ingeniería Informática']);
         $proceso = $this->crearConvocatoria($carrera);
 
@@ -85,20 +88,20 @@ class BancoJerarquiaTest extends TestCase
             $proceso->etapas()->whereHas('etapa', fn ($consulta) => $consulta->where('codigo', 'HABILIDADES_BLANDAS'))->exists(),
         );
 
-        $codigos = ProcesoPrueba::query()
+        $familias = ProcesoPrueba::query()
             ->whereHas('procesoEtapa', fn ($consulta) => $consulta
                 ->where('proceso_id', $proceso->id)
                 ->whereHas('etapa', fn ($etapa) => $etapa->where('codigo', 'EVALUACION_PSICOLOGICA')))
             ->with('prueba')
             ->get()
-            ->map(fn ($cupo) => $cupo->prueba->codigo)
+            ->map(fn ($cupo) => $cupo->prueba->familia?->value)
             ->sort()
             ->values()
             ->all();
 
         $this->assertSame(
-            ['16PF_FORMA_A', 'ES_USTED_MUY_HABIL', 'TEST_LABERINTOS_VISOESPACIAL', 'TEST_LECTURA_COMPRENSIVA', 'TEST_PURDUE_NO_VERBAL', 'TMMS_24'],
-            $codigos,
+            ['HABILIDAD_BLANDA', 'HABILIDAD_ESPECIFICA', 'INTELIGENCIA', 'PERSONALIDAD'],
+            $familias,
         );
     }
 }

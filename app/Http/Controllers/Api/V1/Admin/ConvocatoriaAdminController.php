@@ -6,8 +6,8 @@ use App\Catalogos\LibrosPrueba;
 use App\Enums\EstadoProceso;
 use App\Enums\FamiliaPrueba;
 use App\Enums\ModoAsignacion;
-use App\Enums\TipoPrueba;
 use App\Enums\TipoProceso;
+use App\Enums\TipoPrueba;
 use App\Enums\UmbralOrigen;
 use App\Http\Controllers\Controller;
 use App\Models\Carrera;
@@ -54,7 +54,7 @@ class ConvocatoriaAdminController extends Controller
         }
 
         if ($request->filled('q')) {
-            $termino = '%' . trim($request->string('q')) . '%';
+            $termino = '%'.trim($request->string('q')).'%';
             $query->where(function ($q) use ($termino) {
                 $q->where('codigo', 'ilike', $termino)
                     ->orWhere('nombre', 'ilike', $termino)
@@ -251,7 +251,7 @@ class ConvocatoriaAdminController extends Controller
 
             $nombre = ! empty($datos['nombre'])
                 ? trim($datos['nombre'])
-                : "Talento {$carrera->nombre} {$gestion}" . ($numero > 1 ? " (Conv. {$numero})" : '');
+                : "Talento {$carrera->nombre} {$gestion}".($numero > 1 ? " (Conv. {$numero})" : '');
 
             $estado = ! empty($datos['estado'])
                 ? EstadoProceso::from($datos['estado'])
@@ -303,13 +303,14 @@ class ConvocatoriaAdminController extends Controller
                 }
             }
 
-            $pruebasEspecificas = $especificas->map(fn (Prueba $especifica) => [
-                'codigo' => $especifica->codigo,
+            $ancla = $especificas->first();
+            $pruebasEspecificas = $ancla === null ? [] : [[
+                'codigo' => $ancla->codigo,
                 'peso' => 5.00,
                 'umbral_origen' => UmbralOrigen::Fijo,
                 'modo' => ModoAsignacion::Fija,
-                'tiempo' => $especifica->tiempo_limite_seg,
-            ])->all();
+                'tiempo' => $ancla->tiempo_limite_seg,
+            ]];
 
             $rotativos = collect(LibrosPrueba::cuposRotativos())->map(function (array $cupo): array {
                 $prueba = Prueba::query()->where('codigo', $cupo['codigo'])->first();

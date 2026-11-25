@@ -239,19 +239,18 @@ class RegistrarSolicitudEmpresa
             }
         }
 
-        $orden = 4;
-        foreach ($especificas as $especifica) {
+        $especifica = $especificas->sortBy('id')->first();
+        if ($especifica !== null) {
             $psicologica->pruebas()->create([
                 'prueba_id' => $especifica->id,
                 'modo_asignacion' => ModoAsignacion::Fija,
-                'orden' => $orden,
+                'orden' => 4,
                 'peso' => 5,
                 'umbral_origen' => UmbralOrigen::Fijo,
                 'obligatoria' => true,
                 'tiempo_maximo_seg' => $especifica->tiempo_limite_seg,
                 'max_intentos' => 1,
             ]);
-            $orden++;
         }
 
         $pruebaEntrevista = Prueba::query()->where('codigo', 'ENTREVISTA')->first();

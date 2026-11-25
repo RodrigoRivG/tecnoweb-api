@@ -22,7 +22,9 @@ return [
     // Frontend React + Vite; varios orígenes separados por coma
     'allowed_origins' => array_map('trim', explode(',', env('FRONTEND_URL', 'http://localhost:5173'))),
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => env('APP_ENV', 'production') === 'local'
+        ? ['#^http://(localhost|127\.0\.0\.1):\d+$#']
+        : [],
 
     'allowed_headers' => ['*'],
 

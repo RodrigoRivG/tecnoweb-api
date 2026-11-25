@@ -29,7 +29,7 @@ final class LibrosPrueba
     }
 
     /**
-     * Tres libros fijos según el nombre de la carrera.
+     * Libros por defecto de la carrera. Se rinde uno, rotando dentro de este grupo.
      *
      * @return list<string>
      */

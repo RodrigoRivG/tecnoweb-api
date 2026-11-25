@@ -76,7 +76,12 @@ class SolicitudEmpresaTest extends TestCase
 
         $candidato = Usuario::query()->where('correo', 'diego.rojas@externo.test')->firstOrFail();
         $this->assertSame(CodigoRol::CandidatoExterno->value, $candidato->rol->codigo instanceof \BackedEnum ? $candidato->rol->codigo->value : $candidato->rol->codigo);
-        $this->assertGreaterThanOrEqual(4, AsignacionPrueba::query()->where('postulacion_id', $postulacionId)->count());
+        $asignadas = AsignacionPrueba::query()->with('prueba')->where('postulacion_id', $postulacionId)->get();
+        $this->assertCount(4, $asignadas);
+        $this->assertEqualsCanonicalizing(
+            ['PERSONALIDAD', 'INTELIGENCIA', 'HABILIDAD_BLANDA', 'HABILIDAD_ESPECIFICA'],
+            $asignadas->map(fn ($asignacion) => $asignacion->prueba->familia->value)->all(),
+        );
 
         $this->postJson(route('auth.login'), [
             'correo' => 'diego.rojas@externo.test',
@@ -88,7 +93,9 @@ class SolicitudEmpresaTest extends TestCase
             ->getJson(route('empresa.solicitudes.index'))
             ->assertOk()
             ->assertJsonPath('data.0.accesos.0.correo', 'diego.rojas@externo.test')
-            ->assertJsonPath('data.0.accesos.0.clave_temporal', $clave);
+            ->assertJsonPath('data.0.accesos.0.ci', '888222')
+            ->assertJsonPath('data.0.accesos.0.clave_temporal', $clave)
+            ->assertJsonPath('data.0.accesos.0.estado_evaluacion', 'Evaluación psicológica · Pendiente');
 
         $this->actingAs($contacto, 'sanctum')
             ->getJson(route('empresa.postulaciones.informe', $postulacionId))

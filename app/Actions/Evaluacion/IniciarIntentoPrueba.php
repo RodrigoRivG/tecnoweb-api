@@ -4,6 +4,7 @@ namespace App\Actions\Evaluacion;
 
 use App\Enums\EstadoEtapa;
 use App\Enums\EstadoIntento;
+use App\Enums\TipoPrueba;
 use App\Models\AsignacionPrueba;
 use App\Models\IntentoPrueba;
 use App\Models\Postulacion;
@@ -36,6 +37,22 @@ class IniciarIntentoPrueba
         }
 
         app(AsignarInstrumentosPostulacion::class)->handle($postulacion);
+
+        $esBateria = $procesoPrueba->prueba?->tipo === TipoPrueba::Test && $procesoPrueba->prueba->familia !== null;
+        $asignada = AsignacionPrueba::query()
+            ->where('postulacion_id', $postulacion->id)
+            ->where('proceso_prueba_id', $procesoPrueba->id)
+            ->exists();
+        $yaEmpezo = IntentoPrueba::query()
+            ->where('postulacion_id', $postulacion->id)
+            ->where('proceso_prueba_id', $procesoPrueba->id)
+            ->exists();
+
+        if ($esBateria && ! $asignada && ! $yaEmpezo) {
+            throw ValidationException::withMessages([
+                'prueba' => 'Esta prueba no está asignada. Cada familia tiene un solo libro.',
+            ]);
+        }
 
         return Auditoria::comoUsuario($usuario->id, function () use ($postulacion, $procesoPrueba): IntentoPrueba {
             // Verificar si ya existe un intento en curso
@@ -102,4 +119,3 @@ class IniciarIntentoPrueba
         }
     }
 }
-

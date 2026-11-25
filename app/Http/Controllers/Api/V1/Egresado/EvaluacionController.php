@@ -214,12 +214,11 @@ class EvaluacionController extends Controller
         12 => ['rango' => 'Término Medio', 'percentil' => 56, 'interpretacion' => 'Comprensión de textos funcional satisfactoria.'],
         11 => ['rango' => 'Término Medio', 'percentil' => 48, 'interpretacion' => 'Comprensión promedio en textos técnicos y académicos.'],
         10 => ['rango' => 'Término Medio Bajo', 'percentil' => 40, 'interpretacion' => 'Comprensión adecuada en pasajes directos, con dificultad moderada en inferencias complejas.'],
-        9  => ['rango' => 'Término Medio Bajo', 'percentil' => 32, 'interpretacion' => 'Requiere relectura frecuente para captar el sentido principal del texto.'],
-        8  => ['rango' => 'Inferior al Término Medio', 'percentil' => 24, 'interpretacion' => 'Dificultad evidente en análisis de lectura e interpretación de vocabulario contextual.'],
-        7  => ['rango' => 'Bajo', 'percentil' => 16, 'interpretacion' => 'Baja capacidad de asimilación textual y comprensión de argumentos.'],
-        6  => ['rango' => 'Deficiente', 'percentil' => 10, 'interpretacion' => 'Comprensión lectora significativamente por debajo del promedio universitario.'],
+        9 => ['rango' => 'Término Medio Bajo', 'percentil' => 32, 'interpretacion' => 'Requiere relectura frecuente para captar el sentido principal del texto.'],
+        8 => ['rango' => 'Inferior al Término Medio', 'percentil' => 24, 'interpretacion' => 'Dificultad evidente en análisis de lectura e interpretación de vocabulario contextual.'],
+        7 => ['rango' => 'Bajo', 'percentil' => 16, 'interpretacion' => 'Baja capacidad de asimilación textual y comprensión de argumentos.'],
+        6 => ['rango' => 'Deficiente', 'percentil' => 10, 'interpretacion' => 'Comprensión lectora significativamente por debajo del promedio universitario.'],
     ];
-
 
     /**
      * Calcula el diagnóstico psicométrico de lectura comprensiva.
@@ -398,7 +397,7 @@ class EvaluacionController extends Controller
 
         $asignar->handle($postulacion);
         $postulacion->unsetRelation('etapas');
-        $postulacion->load(['etapas.procesoEtapa.etapa', 'etapas.procesoEtapa.pruebas.prueba', 'resultados']);
+        $postulacion->load(['etapas.procesoEtapa.etapa', 'resultados']);
 
         $asignaciones = AsignacionPrueba::query()
             ->with('prueba')
@@ -406,46 +405,44 @@ class EvaluacionController extends Controller
             ->get()
             ->keyBy('proceso_prueba_id');
 
-        $modulos = $postulacion->etapas
-            ->flatMap(function ($etapa) use ($postulacion, $asignaciones) {
-                return $etapa->procesoEtapa->pruebas
-                    ->filter(fn ($cupo) => $cupo->prueba?->tipo?->value === 'TEST')
-                    ->map(function ($cupo) use ($postulacion, $asignaciones, $etapa) {
-                        $instrumento = $asignaciones->get($cupo->id)?->prueba ?? $cupo->prueba;
-                        $resultado = $postulacion->resultados->firstWhere('proceso_prueba_id', $cupo->id);
-                        $intento = IntentoPrueba::query()
-                            ->where('postulacion_id', $postulacion->id)
-                            ->where('proceso_prueba_id', $cupo->id)
-                            ->where('estado', EstadoIntento::EnCurso)
-                            ->latest('id')
-                            ->first();
+        $etapas = $postulacion->etapas->keyBy('proceso_etapa_id');
+        $modulos = $asignar->cuposVisibles($postulacion)
+            ->map(function ($cupo) use ($postulacion, $asignaciones, $etapas) {
+                $etapa = $etapas->get($cupo->proceso_etapa_id);
+                $instrumento = $asignaciones->get($cupo->id)?->prueba ?? $cupo->prueba;
+                $resultado = $postulacion->resultados->firstWhere('proceso_prueba_id', $cupo->id);
+                $intento = IntentoPrueba::query()
+                    ->where('postulacion_id', $postulacion->id)
+                    ->where('proceso_prueba_id', $cupo->id)
+                    ->where('estado', EstadoIntento::EnCurso)
+                    ->latest('id')
+                    ->first();
 
-                        $estado = 'BLOQUEADA';
-                        if ($resultado !== null) {
-                            $estado = 'FINALIZADO';
-                        } elseif ($intento !== null) {
-                            $estado = 'EN_PROGRESO';
-                        } elseif ($etapa->estado === EstadoEtapa::Pendiente) {
-                            $estado = 'PENDIENTE';
-                        }
+                $estado = 'BLOQUEADA';
+                if ($resultado !== null) {
+                    $estado = 'FINALIZADO';
+                } elseif ($intento !== null) {
+                    $estado = 'EN_PROGRESO';
+                } elseif ($etapa?->estado === EstadoEtapa::Pendiente) {
+                    $estado = 'PENDIENTE';
+                }
 
-                        $limitePregunta = TiempoPregunta::segundos($instrumento->familia);
-                        $segundos = null;
-                        if ($intento?->pregunta_actual_iniciada_en) {
-                            $segundos = TiempoPregunta::restantes($intento->pregunta_actual_iniciada_en, $limitePregunta);
-                        }
+                $limitePregunta = TiempoPregunta::segundos($instrumento->familia);
+                $segundos = null;
+                if ($intento?->pregunta_actual_iniciada_en) {
+                    $segundos = TiempoPregunta::restantes($intento->pregunta_actual_iniciada_en, $limitePregunta);
+                }
 
-                        return [
-                            'proceso_prueba_id' => $cupo->id,
-                            'familia' => $instrumento->familia?->value,
-                            'modulo' => $instrumento->familia?->etiqueta() ?? $etapa->procesoEtapa->etapa->nombre,
-                            'codigo' => $instrumento->codigo,
-                            'nombre' => $instrumento->nombre,
-                            'estado' => $estado,
-                            'segundos_restantes' => $segundos,
-                            'puntaje_normalizado' => $resultado ? (float) $resultado->puntaje_normalizado : null,
-                        ];
-                    });
+                return [
+                    'proceso_prueba_id' => $cupo->id,
+                    'familia' => $instrumento->familia?->value,
+                    'modulo' => $instrumento->familia?->etiqueta() ?? $etapa?->procesoEtapa?->etapa?->nombre,
+                    'codigo' => $instrumento->codigo,
+                    'nombre' => $instrumento->nombre,
+                    'estado' => $estado,
+                    'segundos_restantes' => $segundos,
+                    'puntaje_normalizado' => $resultado ? (float) $resultado->puntaje_normalizado : null,
+                ];
             })
             ->values();
 
@@ -496,6 +493,22 @@ class EvaluacionController extends Controller
             }
         }
 
+        $visibles = app(AsignarInstrumentosPostulacion::class)->cuposVisibles($postulacion)->pluck('id');
+        $todasPruebasEtapa = $todasPruebasEtapa
+            ->filter(function ($pp) use ($visibles) {
+                $esBateria = $pp->prueba?->tipo?->value === 'TEST' && $pp->prueba?->familia !== null;
+
+                return ! $esBateria || $visibles->contains($pp->id);
+            })
+            ->values();
+
+        if ($procesoPrueba !== null) {
+            $esBateria = $procesoPrueba->prueba?->tipo?->value === 'TEST' && $procesoPrueba->prueba?->familia !== null;
+            if ($esBateria && ! $visibles->contains($procesoPrueba->id)) {
+                $procesoPrueba = null;
+            }
+        }
+
         if (! $procesoPrueba) {
             // Seleccionar por defecto la primera prueba pendiente (sin resultado aprobado)
             $procesoPrueba = $todasPruebasEtapa->first(function ($pp) use ($postulacion) {
@@ -503,12 +516,20 @@ class EvaluacionController extends Controller
             }) ?? $todasPruebasEtapa->first();
         }
 
-        $prueba = AsignacionPrueba::query()
+        if ($procesoPrueba === null) {
+            throw ValidationException::withMessages([
+                'evaluacion' => 'No se encontró ninguna prueba configurada para las etapas de este proceso.',
+            ]);
+        }
+
+        $librosAsignados = AsignacionPrueba::query()
             ->with('prueba')
             ->where('postulacion_id', $postulacion->id)
-            ->where('proceso_prueba_id', $procesoPrueba->id)
-            ->first()
-            ?->prueba ?? $procesoPrueba->prueba;
+            ->whereIn('proceso_prueba_id', $todasPruebasEtapa->pluck('id')->push($procesoPrueba->id))
+            ->get()
+            ->keyBy('proceso_prueba_id');
+
+        $prueba = $librosAsignados->get($procesoPrueba->id)?->prueba ?? $procesoPrueba->prueba;
 
         $intentoEnCurso = IntentoPrueba::where('postulacion_id', $postulacion->id)
             ->where('proceso_prueba_id', $procesoPrueba->id)
@@ -530,24 +551,25 @@ class EvaluacionController extends Controller
         $totalPreguntas = Pregunta::where('prueba_id', $prueba->id)->count();
 
         // Mapeo de todas las pruebas de la etapa con su estado actual
-        $listaPruebasEtapa = $todasPruebasEtapa->map(function ($pp) use ($postulacion, $procesoPrueba) {
+        $listaPruebasEtapa = $todasPruebasEtapa->map(function ($pp) use ($postulacion, $procesoPrueba, $librosAsignados) {
             $res = $postulacion->resultados->where('proceso_prueba_id', $pp->id)->first();
             $int = IntentoPrueba::where('postulacion_id', $postulacion->id)
                 ->where('proceso_prueba_id', $pp->id)
                 ->where('estado', EstadoIntento::EnCurso)
                 ->latest('id')
                 ->first();
+            $libro = $librosAsignados->get($pp->id)?->prueba ?? $pp->prueba;
 
             return [
                 'id' => $pp->id,
-                'prueba_id' => $pp->prueba_id,
-                'codigo' => $pp->prueba->codigo,
-                'nombre' => $pp->prueba->nombre,
-                'descripcion' => $pp->prueba->descripcion,
+                'prueba_id' => $libro->id,
+                'codigo' => $libro->codigo,
+                'nombre' => $libro->nombre,
+                'descripcion' => $libro->descripcion,
                 'orden' => $pp->orden,
                 'peso' => (float) $pp->peso,
                 'obligatoria' => $pp->obligatoria,
-                'tiempo_maximo_seg' => $pp->prueba->tiempo_limite_seg ?? $pp->tiempo_maximo_seg ?? 1800,
+                'tiempo_maximo_seg' => $libro->tiempo_limite_seg ?? $pp->tiempo_maximo_seg ?? 1800,
                 'seleccionada' => ($pp->id === $procesoPrueba->id),
                 'completada' => ($res !== null),
                 'aprobada' => (bool) ($res?->aprobada ?? false),

@@ -3,6 +3,7 @@
 namespace App\Actions\Banco;
 
 use App\Enums\EstadoProceso;
+use App\Enums\FamiliaPrueba;
 use App\Enums\ModoAsignacion;
 use App\Enums\UmbralOrigen;
 use App\Models\AsignacionPrueba;
@@ -14,7 +15,8 @@ use App\Models\ResultadoPrueba;
 
 /**
  * Un libro que rota entra al sorteo por estar activo.
- * Uno de habilidad específica se agrega como cupo fijo en las convocatorias abiertas de sus carreras.
+ * Uno de habilidad específica entra al pool de su carrera y, si la etapa
+ * todavía no tiene cupo de esa familia, abre el único cupo.
  */
 class PublicarLibro
 {
@@ -39,7 +41,27 @@ class PublicarLibro
                     return;
                 }
 
-                $cupo->delete();
+                $hayOtroCupo = ProcesoPrueba::query()
+                    ->where('proceso_etapa_id', $cupo->proceso_etapa_id)
+                    ->where('id', '!=', $cupo->id)
+                    ->whereHas('prueba', fn ($consulta) => $consulta->where('familia', FamiliaPrueba::HabilidadEspecifica))
+                    ->exists();
+
+                $otroLibro = $carreraId === null ? null : Prueba::query()
+                    ->where('familia', FamiliaPrueba::HabilidadEspecifica)
+                    ->where('activa', true)
+                    ->where('id', '!=', $prueba->id)
+                    ->whereHas('carreras', fn ($consulta) => $consulta->whereKey($carreraId))
+                    ->orderBy('id')
+                    ->first();
+
+                if ($hayOtroCupo || $otroLibro === null) {
+                    $cupo->delete();
+
+                    return;
+                }
+
+                $cupo->update(['prueba_id' => $otroLibro->id]);
             });
 
         if (! $prueba->activa || $carreraIds->isEmpty()) {
@@ -61,12 +83,19 @@ class PublicarLibro
                 $consulta->whereHas('convocatoria', fn ($convocatoria) => $convocatoria->whereIn('carrera_id', $carreraIds))
                     ->orWhereHas('solicitud', fn ($solicitud) => $solicitud->whereIn('carrera_id', $carreraIds));
             })
-            ->with(['etapas.etapa', 'etapas.pruebas'])
+            ->with(['etapas.etapa', 'etapas.pruebas.prueba'])
             ->get();
 
         foreach ($procesos as $proceso) {
             $etapa = $proceso->etapas->first(fn ($item) => $item->etapa?->codigo === 'EVALUACION_PSICOLOGICA');
-            if ($etapa === null || $etapa->pruebas->contains(fn (ProcesoPrueba $cupo) => (int) $cupo->prueba_id === (int) $prueba->id)) {
+            if ($etapa === null) {
+                continue;
+            }
+
+            $yaHayFamilia = $etapa->pruebas->contains(
+                fn (ProcesoPrueba $cupo): bool => $cupo->prueba?->familia === FamiliaPrueba::HabilidadEspecifica,
+            );
+            if ($yaHayFamilia) {
                 continue;
             }
 

@@ -2,6 +2,10 @@
 
 namespace App\Actions\Empresa;
 
+use App\Enums\EstadoEtapa;
+use App\Enums\EstadoPostulacion;
+use App\Models\Postulacion;
+use App\Models\PostulacionEtapa;
 use App\Models\Proceso;
 use Illuminate\Support\Facades\DB;
 
@@ -24,25 +28,37 @@ class PresentarSolicitudEmpresa
 
         $accesos = [];
         if ($conAccesos) {
-            $filas = DB::table('talento.invitacion_postulacion as invitacion')
-                ->join('talento.postulacion as postulacion', 'postulacion.id', '=', 'invitacion.postulacion_id')
-                ->join('talento.persona as persona', 'persona.id', '=', 'postulacion.persona_id')
-                ->join('talento.usuario as usuario', 'usuario.id', '=', 'persona.usuario_id')
-                ->where('postulacion.proceso_id', $proceso->id)
-                ->orderBy('postulacion.id')
-                ->get([
-                    'postulacion.id as postulacion_id',
-                    'persona.nombres',
-                    'persona.apellido_paterno',
-                    'usuario.correo',
-                    'invitacion.clave_temporal',
-                ]);
-            $accesos = $filas->map(fn ($fila): array => [
-                'postulacion_id' => $fila->postulacion_id,
-                'nombre' => trim($fila->nombres.' '.$fila->apellido_paterno),
-                'correo' => $fila->correo,
-                'clave_temporal' => $fila->clave_temporal,
-            ])->all();
+            $postulaciones = Postulacion::query()
+                ->with(['persona.usuario', 'etapas.procesoEtapa.etapa'])
+                ->where('proceso_id', $proceso->id)
+                ->orderBy('id')
+                ->get();
+            $claves = $postulaciones->isEmpty()
+                ? collect()
+                : DB::table('talento.invitacion_postulacion')
+                    ->whereIn('postulacion_id', $postulaciones->pluck('id'))
+                    ->pluck('clave_temporal', 'postulacion_id')
+                    ->mapWithKeys(fn ($clave, $id): array => [(int) $id => $clave]);
+
+            $accesos = $postulaciones->map(function (Postulacion $postulacion) use ($claves): array {
+                $etapa = $postulacion->etapas
+                    ->sortBy(fn (PostulacionEtapa $item): int => $item->procesoEtapa?->orden ?? 0)
+                    ->first(fn (PostulacionEtapa $item): bool => in_array($item->estado?->value, [
+                        EstadoEtapa::Pendiente->value,
+                        EstadoEtapa::EnCurso->value,
+                        EstadoEtapa::EnRevision->value,
+                    ], true))
+                    ?? $postulacion->etapas->sortByDesc(fn (PostulacionEtapa $item): int => $item->procesoEtapa?->orden ?? 0)->first();
+
+                return [
+                    'postulacion_id' => $postulacion->id,
+                    'nombre' => trim(($postulacion->persona?->nombres ?? '').' '.($postulacion->persona?->apellido_paterno ?? '')),
+                    'ci' => $postulacion->persona?->ci_numero,
+                    'correo' => $postulacion->persona?->usuario?->correo,
+                    'clave_temporal' => $claves->get($postulacion->id),
+                    'estado_evaluacion' => $this->etiquetaEvaluacion($postulacion, $etapa),
+                ];
+            })->all();
         }
 
         return [
@@ -75,5 +91,35 @@ class PresentarSolicitudEmpresa
             ])->all(),
             'accesos' => $accesos,
         ];
+    }
+
+    private function etiquetaEvaluacion(Postulacion $postulacion, ?PostulacionEtapa $etapa): string
+    {
+        $cerrada = match ($postulacion->estado) {
+            EstadoPostulacion::Aprobada => 'Evaluación aprobada',
+            EstadoPostulacion::NoAprobada => 'No aprobada',
+            EstadoPostulacion::Retirada => 'Retirada',
+            default => null,
+        };
+        if ($cerrada !== null) {
+            return $cerrada;
+        }
+        if ($etapa === null) {
+            return 'Sin etapa';
+        }
+
+        $nombre = $etapa->procesoEtapa?->etapa?->nombre ?? 'Evaluación';
+        $estado = match ($etapa->estado) {
+            EstadoEtapa::Pendiente => 'Pendiente',
+            EstadoEtapa::EnCurso => 'En curso',
+            EstadoEtapa::EnRevision => 'En revisión',
+            EstadoEtapa::Aprobada => 'Aprobada',
+            EstadoEtapa::Reprobada => 'Reprobada',
+            EstadoEtapa::Bloqueada => 'Bloqueada',
+            EstadoEtapa::Omitida => 'Omitida',
+            default => $etapa->estado?->value ?? '',
+        };
+
+        return $nombre.' · '.$estado;
     }
 }

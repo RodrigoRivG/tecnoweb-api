@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Actions\Evaluacion\CompactarCuposPorFamilia;
 use App\Catalogos\LibrosPrueba;
 use App\Enums\FamiliaPrueba;
 use App\Enums\ModoAsignacion;
@@ -67,19 +68,17 @@ class AlinearBancoEvaluacionSeeder extends Seeder
                 return;
             }
 
-            $codigos = collect(LibrosPrueba::cuposRotativos())->pluck('codigo')
-                ->merge(LibrosPrueba::trioPorCarrera($convocatoria->carrera->nombre));
+            $ancla = LibrosPrueba::trioPorCarrera($convocatoria->carrera->nombre)[0] ?? null;
 
             $orden = 1;
             foreach (LibrosPrueba::cuposRotativos() as $cupo) {
                 $this->asegurarCupo($psicologica, $libros->get($cupo['codigo']), $orden++, $cupo['peso'], ModoAsignacion::Alterna);
             }
 
-            foreach (LibrosPrueba::trioPorCarrera($convocatoria->carrera->nombre) as $codigo) {
-                $this->asegurarCupo($psicologica, $libros->get($codigo), $orden++, 5, ModoAsignacion::Fija);
-            }
+            $this->asegurarCupo($psicologica, $ancla === null ? null : $libros->get($ancla), $orden, 5, ModoAsignacion::Fija);
 
-            $this->quitarCuposSobrantes($psicologica, $codigos->all());
+            $this->quitarCuposSobrantes($psicologica, collect(LibrosPrueba::definiciones())->pluck('codigo')->all());
+            app(CompactarCuposPorFamilia::class)->handle($convocatoria->proceso);
             $this->retirarEtapaBlandas($convocatoria->proceso_id);
             $this->renumerarEtapas($convocatoria->proceso_id);
         });
@@ -107,10 +106,12 @@ class AlinearBancoEvaluacionSeeder extends Seeder
             ->where('prueba_id', $prueba->id)
             ->first();
 
-        if ($cupo === null && $modo === ModoAsignacion::Alterna && $prueba->familia === FamiliaPrueba::HabilidadBlanda) {
+        if ($cupo === null && $prueba->familia !== null) {
             $cupo = ProcesoPrueba::query()
                 ->where('proceso_etapa_id', $etapa->id)
-                ->whereHas('prueba', fn ($consulta) => $consulta->where('familia', FamiliaPrueba::HabilidadBlanda))
+                ->whereHas('prueba', fn ($consulta) => $consulta->where('familia', $prueba->familia))
+                ->orderBy('orden')
+                ->orderBy('id')
                 ->first();
         }
 
@@ -217,7 +218,7 @@ class AlinearBancoEvaluacionSeeder extends Seeder
 
     private function renumerarEtapas(int $procesoId): void
     {
-            DB::table('talento.proceso_etapa')->where('proceso_id', $procesoId)->update([
+        DB::table('talento.proceso_etapa')->where('proceso_id', $procesoId)->update([
             'orden' => DB::raw('orden + 100'),
         ]);
 

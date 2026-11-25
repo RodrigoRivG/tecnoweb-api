@@ -7,12 +7,12 @@ use App\Http\Controllers\Api\V1\Admin\PerfilIdealController;
 use App\Http\Controllers\Api\V1\Admin\PreguntaAdminController;
 use App\Http\Controllers\Api\V1\Admin\SolicitudEmpresaController;
 use App\Http\Controllers\Api\V1\Admin\UsuarioAdminController;
-use App\Http\Controllers\Api\V1\Empresa\PanelEmpresaController;
-use App\Http\Controllers\Api\V1\Empresa\RegistroSolicitudController;
 use App\Http\Controllers\Api\V1\AutenticacionController;
 use App\Http\Controllers\Api\V1\Egresado\DocumentoController;
 use App\Http\Controllers\Api\V1\Egresado\EvaluacionController;
 use App\Http\Controllers\Api\V1\Egresado\PostulacionController;
+use App\Http\Controllers\Api\V1\Empresa\PanelEmpresaController;
+use App\Http\Controllers\Api\V1\Empresa\RegistroSolicitudController;
 use App\Http\Controllers\Api\V1\Evaluador\InformePostulacionController;
 use App\Http\Controllers\Api\V1\Evaluador\PostulacionEvaluadorController;
 use App\Http\Controllers\Api\V1\Evaluador\RevisionCvController;
@@ -153,7 +153,6 @@ Route::prefix('v1')->group(function () {
                 Route::apiResource('convocatorias', ConvocatoriaAdminController::class)
                     ->parameters(['convocatorias' => 'proceso'])
                     ->whereNumber('proceso');
-                Route::get('procesos/{proceso}/perfil-ideal', [PerfilIdealController::class, 'show'])->whereNumber('proceso')->name('procesos.perfil-ideal.show');
                 Route::put('procesos/{proceso}/perfil-ideal', [PerfilIdealController::class, 'update'])->whereNumber('proceso')->name('procesos.perfil-ideal.update');
             });
 
@@ -190,6 +189,11 @@ Route::prefix('v1')->group(function () {
                 Route::post('roles', [UsuarioAdminController::class, 'storeRol'])->name('roles.store');
                 Route::put('roles/{rol}/permisos', [UsuarioAdminController::class, 'actualizarPermisosRol'])->whereNumber('rol')->name('roles.permisos.update');
             });
+
+            Route::get('procesos/{proceso}/perfil-ideal', [PerfilIdealController::class, 'show'])
+                ->middleware('permiso:convocatorias.gestionar,solicitudes.gestionar')
+                ->whereNumber('proceso')
+                ->name('procesos.perfil-ideal.show');
 
             Route::middleware('permiso:solicitudes.gestionar')->group(function () {
                 Route::get('solicitudes-empresa', [SolicitudEmpresaController::class, 'index'])->name('solicitudes-empresa.index');

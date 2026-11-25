@@ -10,8 +10,8 @@ enum FamiliaPrueba: string
     case HabilidadEspecifica = 'HABILIDAD_ESPECIFICA';
 
     /**
-     * Personalidad, inteligencia y habilidades blandas rotan de libro.
-     * Las habilidades específicas quedan fijas por carrera.
+     * El banco completo rota en personalidad, inteligencia y habilidades blandas.
+     * La habilidad específica rota dentro de los libros de la carrera.
      */
     public function alterna(): bool
     {

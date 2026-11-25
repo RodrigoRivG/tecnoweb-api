@@ -48,6 +48,8 @@ class PostulacionEvaluadorController extends Controller
             return [
                 'id' => $p->id,
                 'codigo' => $p->codigo,
+                'proceso_id' => $p->proceso_id,
+                'proceso_codigo' => $p->proceso?->codigo,
                 'estado' => $p->estado?->value,
                 'postulante' => [
                     'nombre_completo' => $p->persona?->nombre_completo,
@@ -75,4 +77,3 @@ class PostulacionEvaluadorController extends Controller
         return response()->json(['data' => $data]);
     }
 }
-
