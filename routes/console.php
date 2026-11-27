@@ -58,6 +58,7 @@ Artisan::command('talento:generar-candidatos-completos', function () {
     $seeder = new CandidatosCompletosSeeder;
     $seeder->setCommand($this);
     $seeder->run();
+    $this->call('talento:resincronizar-postulaciones');
     $this->info('¡Egresados con proceso completo generados (completo.*@talento.test / password123)!');
 });
 
@@ -542,6 +543,61 @@ Artisan::command('talento:resincronizar-postulaciones {--id=}', function (
 
     $this->info("Revisadas: {$total} | No aprobadas tras psico: {$noAprobadas}");
 })->purpose('Alinea etapas y cierres según resultados y umbrales de las pruebas.');
+
+Artisan::command('talento:reparar-psico-demo', function () {
+    $calidadPorCorreo = [];
+    foreach ([
+        CandidatosCompletosSeeder::candidatos(),
+        EstudiantesPruebaSeeder::candidatosEmbudoPorFases(),
+        EmbudoEvaluacionPanelSeeder::egresadosEmbudo(),
+    ] as $lista) {
+        foreach ($lista as $candidato) {
+            $calidadPorCorreo[$candidato['correo']] = (float) ($candidato['calidad_psico'] ?? 0.9);
+        }
+    }
+
+    $reparador = new class extends \Illuminate\Database\Seeder
+    {
+        use \Database\Seeders\Concerns\SiembraEvaluacionPostulacion;
+
+        public function aplicar(Usuario $usuario, Postulacion $postulacion, float $calidad): void
+        {
+            $this->completarEvaluacionPsicologica($usuario, $postulacion, $calidad);
+        }
+    };
+
+    $pendientes = Postulacion::query()
+        ->whereHas('etapas', function ($consulta) {
+            $consulta->where('estado', EstadoEtapa::Pendiente)
+                ->whereHas('procesoEtapa.etapa', fn ($etapa) => $etapa->where('codigo', 'EVALUACION_PSICOLOGICA'));
+        })
+        ->whereHas('persona.usuario', fn ($usuario) => $usuario->where('correo', 'like', '%@talento.test'))
+        ->with(['persona.usuario'])
+        ->orderBy('id')
+        ->get();
+
+    if ($pendientes->isEmpty()) {
+        $this->info('No hay postulaciones demo con psicológica pendiente.');
+
+        return;
+    }
+
+    foreach ($pendientes as $postulacion) {
+        $usuario = $postulacion->persona?->usuario;
+        if ($usuario === null) {
+            continue;
+        }
+        $calidad = $calidadPorCorreo[$usuario->correo] ?? 0.9;
+        try {
+            $reparador->aplicar($usuario, $postulacion->fresh(), $calidad);
+            $this->line("  Reparada #{$postulacion->id} ({$usuario->correo})");
+        } catch (\Throwable $error) {
+            $this->warn("  No se pudo #{$postulacion->id}: {$error->getMessage()}");
+        }
+    }
+
+    $this->call('talento:resincronizar-postulaciones');
+})->purpose('Completa tests psicológicos faltantes en egresados @talento.test y resincroniza etapas.');
 
 Artisan::command('talento:ver-resumen {id=1}', function (int $id) {
     $this->info('Total postulaciones en el sistema: '.Postulacion::count());

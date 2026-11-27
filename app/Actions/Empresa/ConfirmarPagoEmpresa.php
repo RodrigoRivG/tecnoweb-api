@@ -80,7 +80,7 @@ class ConfirmarPagoEmpresa
                 'stripe_checkout_session_id' => $stripeSessionId,
                 'stripe_payment_intent_id' => $paymentIntentId,
                 'monto_centavos' => $monto,
-                'moneda' => config('stripe.moneda', 'usd'),
+                'moneda' => config('stripe.moneda', 'bob'),
                 'estado' => $estadoPago,
                 'pagado_en' => now(),
             ],

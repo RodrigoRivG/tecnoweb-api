@@ -2,15 +2,18 @@
 
 namespace App\Http\Controllers\Api\V1\Publico;
 
+use App\Actions\Informe\ArmarInformePostulacion;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Publico\FiltroPublicoRequest;
 use App\Http\Resources\ConvocatoriaResource;
 use App\Http\Resources\FacultadPublicaResource;
 use App\Http\Resources\PerfilPublicoResource;
 use App\Models\Facultad;
+use App\Models\Postulacion;
 use App\Models\Proceso;
 use App\Models\Vistas\PerfilPublico;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 /**
@@ -59,6 +62,36 @@ class BienvenidaController extends Controller
             ->appends($request->safe()->except('page'));
 
         return PerfilPublicoResource::collection($perfiles);
+    }
+
+    /**
+     * Informe consolidado (anónimo) de un perfil publicado en la landing.
+     * Solo si el código figura en v_perfil_publico (consentimiento + vigencia).
+     */
+    public function informePerfil(string $codigo, ArmarInformePostulacion $armar): JsonResponse
+    {
+        $perfil = PerfilPublico::query()->where('codigo_candidato', $codigo)->firstOrFail();
+        $postulacion = Postulacion::query()->where('codigo', $codigo)->firstOrFail();
+
+        $datos = $armar->handle($postulacion);
+        $etiqueta = 'Candidato '.$codigo;
+
+        $datos['publico'] = true;
+        $datos['postulante'] = $etiqueta;
+        $datos['carrera_publica'] = $perfil->carrera;
+        $datos['facultad_publica'] = $perfil->facultad;
+        $datos['posicion_ranking'] = $perfil->posicion;
+        $datos['puntaje_ranking'] = $perfil->puntaje_total;
+        $datos['es_top'] = $perfil->es_top;
+
+        if (isset($datos['informe_ejecutivo']['ficha']) && is_array($datos['informe_ejecutivo']['ficha'])) {
+            $datos['informe_ejecutivo']['ficha']['nombre'] = $etiqueta;
+            $datos['informe_ejecutivo']['ficha']['edad'] = null;
+            $datos['informe_ejecutivo']['ficha']['sexo'] = null;
+            $datos['informe_ejecutivo']['ficha']['estado_civil'] = null;
+        }
+
+        return response()->json(['data' => $datos]);
     }
 
     private function buscarConvocatorias(Builder $query, string $patron): Builder

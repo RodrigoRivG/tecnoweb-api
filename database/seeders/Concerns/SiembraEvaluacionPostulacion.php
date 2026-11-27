@@ -10,11 +10,13 @@ use App\Actions\Evaluacion\GuardarRespuestaIntento;
 use App\Actions\Evaluacion\IniciarIntentoPrueba;
 use App\Enums\EstadoEtapa;
 use App\Enums\EstadoPostulacion;
+use App\Enums\TipoPrueba;
 use App\Models\AsignacionPrueba;
 use App\Models\IntentoPrueba;
 use App\Models\OpcionPregunta;
 use App\Models\Postulacion;
 use App\Models\Pregunta;
+use App\Models\ProcesoEtapa;
 use App\Models\ProcesoPrueba;
 use App\Models\RespuestaIntento;
 use App\Models\ResultadoPrueba;
@@ -60,6 +62,28 @@ trait SiembraEvaluacionPostulacion
         return $ordenadas[$indice];
     }
 
+    /**
+     * Misma lógica que {@see AvanzarEtapaTrasResultados::reconciliarPostulacion()}.
+     */
+    protected function idsPruebasRequeridasEtapa(Postulacion $postulacion, ProcesoEtapa $procesoEtapa): Collection
+    {
+        $obligatorias = $procesoEtapa->pruebas()->with('prueba')->where('obligatoria', true)->get();
+        $deFamilia = $obligatorias->filter(
+            fn (ProcesoPrueba $cupo): bool => $cupo->prueba?->tipo === TipoPrueba::Test && $cupo->prueba->familia !== null,
+        );
+        $asignadas = AsignacionPrueba::query()
+            ->where('postulacion_id', $postulacion->id)
+            ->whereIn('proceso_prueba_id', $deFamilia->pluck('id'))
+            ->pluck('proceso_prueba_id');
+
+        return $obligatorias
+            ->reject(fn (ProcesoPrueba $cupo): bool => $deFamilia->contains('id', $cupo->id))
+            ->pluck('id')
+            ->merge($asignadas)
+            ->unique()
+            ->values();
+    }
+
     protected function completarEvaluacionPsicologica(
         Usuario $candidato,
         Postulacion $postulacion,
@@ -74,21 +98,19 @@ trait SiembraEvaluacionPostulacion
             ->whereHas('procesoEtapa.etapa', fn ($q) => $q->where('codigo', 'EVALUACION_PSICOLOGICA'))
             ->firstOrFail();
 
+        $procesoEtapa = $etapaPsico->procesoEtapa()->with(['pruebas.prueba'])->firstOrFail();
         $asignar->handle($postulacion->refresh());
 
-        $idsEtapa = ProcesoPrueba::query()
-            ->where('proceso_etapa_id', $etapaPsico->proceso_etapa_id)
-            ->pluck('id');
+        $idsRequeridos = $this->idsPruebasRequeridasEtapa($postulacion->fresh(), $procesoEtapa);
+        $pruebas = ProcesoPrueba::query()
+            ->with('prueba')
+            ->whereIn('id', $idsRequeridos)
+            ->orderBy('orden')
+            ->get();
 
-        $pruebas = AsignacionPrueba::query()
-            ->with('procesoPrueba.prueba')
-            ->where('postulacion_id', $postulacion->id)
-            ->whereIn('proceso_prueba_id', $idsEtapa)
-            ->get()
-            ->pluck('procesoPrueba')
-            ->filter()
-            ->sortBy('orden')
-            ->values();
+        if ($pruebas->isEmpty()) {
+            $this->command?->warn("   Sin cupos psicológicos requeridos en postulación #{$postulacion->id}; revisa AlinearBancoEvaluacionSeeder.");
+        }
 
         $etapaPsico->update(['estado' => EstadoEtapa::Pendiente, 'iniciada_en' => now(), 'finalizada_en' => null]);
 

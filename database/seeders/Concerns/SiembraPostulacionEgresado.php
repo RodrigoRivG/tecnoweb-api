@@ -2,8 +2,6 @@
 
 namespace Database\Seeders\Concerns;
 
-use App\Actions\Evaluacion\AsignarInstrumentosPostulacion;
-use App\Actions\Evaluacion\AvanzarEtapaTrasResultados;
 use App\Actions\Evaluacion\CalcularRankingSeleccion;
 use App\Actions\Evaluacion\CalificarAnalisisCv;
 use App\Actions\Evaluacion\CalificarEntrevista;
@@ -17,7 +15,6 @@ use App\Enums\EstadoPostulacion;
 use App\Enums\EstadoUsuario;
 use App\Enums\TipoConsentimiento;
 use App\Models\Archivo;
-use App\Models\AsignacionPrueba;
 use App\Models\Carrera;
 use App\Models\ParametroSistema;
 use App\Models\Postulacion;
@@ -183,61 +180,17 @@ trait SiembraPostulacionEgresado
 
             $calidadPsico = (float) ($datos['calidad_psico'] ?? 1.0);
 
-            $etapaPsico = $etapas['EVALUACION_PSICOLOGICA'];
-            $asignarInstrumentos = app(AsignarInstrumentosPostulacion::class);
-            $asignarInstrumentos->handle($postulacion->refresh());
-
-            $idsEtapaPsico = ProcesoPrueba::query()
-                ->where('proceso_etapa_id', $etapaPsico->proceso_etapa_id)
-                ->pluck('id');
-
-            $pruebasPsico = AsignacionPrueba::query()
-                ->with('procesoPrueba.prueba')
-                ->where('postulacion_id', $postulacion->id)
-                ->whereIn('proceso_prueba_id', $idsEtapaPsico)
-                ->get()
-                ->pluck('procesoPrueba')
-                ->filter()
-                ->sortBy('orden')
-                ->values();
-
-            $etapaPsico->update(['estado' => EstadoEtapa::Pendiente, 'iniciada_en' => now(), 'finalizada_en' => null]);
-            foreach ($pruebasPsico as $pp) {
-                $this->limpiarIntento($postulacion->id, $pp->id);
-
-                $postulacion->etapas()
-                    ->where('proceso_etapa_id', $pp->proceso_etapa_id)
-                    ->update([
-                        'estado' => EstadoEtapa::Pendiente,
-                        'iniciada_en' => now(),
-                        'finalizada_en' => null,
-                    ]);
-
-                $intento = $iniciarIntento->handle($usuario, $postulacion, $pp);
-                $intento->load('respuestas');
-                $preguntas = Pregunta::query()
-                    ->whereIn('id', $intento->respuestas->pluck('pregunta_id'))
-                    ->with('opciones')
-                    ->orderBy('orden')
-                    ->get();
-
-                if ($preguntas->isEmpty()) {
-                    $preguntas = Pregunta::where('prueba_id', $pp->prueba_id)->with('opciones')->orderBy('orden')->get();
-                }
-
-                foreach ($preguntas as $p) {
-                    $opcion = $this->opcionPorCalidad($p->opciones, $calidadPsico);
-                    if ($opcion) {
-                        $guardarRespuesta->handle($usuario, $intento, $p->id, $opcion->id);
-                    }
-                }
-                $finalizarIntento->handle($usuario, $intento);
-            }
-
-            app(AvanzarEtapaTrasResultados::class)->reconciliarPostulacion($postulacion->refresh());
+            $this->completarEvaluacionPsicologica($usuario, $postulacion->fresh(), $calidadPsico);
+            $postulacion->refresh();
 
             if ($postulacion->estado === EstadoPostulacion::NoAprobada) {
                 $this->command?->info("   -> Postulación #{$postulacion->id}: descartada en evaluación psicológica (umbrales).");
+
+                continue;
+            }
+
+            if ($fase >= 6 && ! $this->psicologicaAprobada($postulacion)) {
+                $this->command?->warn("   -> Postulación #{$postulacion->id}: psicológica sigue pendiente; no se simula CV ni etapas posteriores.");
 
                 continue;
             }

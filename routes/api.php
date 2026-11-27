@@ -34,6 +34,9 @@ Route::prefix('v1')->group(function () {
     Route::prefix('publico')->middleware('throttle:publico')->name('publico.')->group(function () {
         Route::get('facultades', [BienvenidaController::class, 'facultades'])->name('facultades');
         Route::get('convocatorias', [BienvenidaController::class, 'convocatorias'])->name('convocatorias');
+        Route::get('perfiles/{codigo}/informe', [BienvenidaController::class, 'informePerfil'])
+            ->where('codigo', '[A-Za-z0-9\-]+')
+            ->name('perfiles.informe');
         Route::get('perfiles', [BienvenidaController::class, 'perfiles'])->name('perfiles');
         Route::post('visitas', RegistrarVisitaController::class)->name('visitas.store');
     });

@@ -52,4 +52,16 @@ class RegistrarVisitaTest extends TestCase
 
         $this->assertDatabaseCount('talento.evento_acceso', 0);
     }
+
+    public function test_acepta_rutas_de_empresa_con_parametro_de_proceso(): void
+    {
+        $ruta = '/empresa/solicitudes/:id/pago';
+
+        $this->postJson(route('publico.visitas.store'), [
+            'ruta' => $ruta,
+            'clave_visita' => (string) Str::uuid(),
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.total', 1);
+    }
 }

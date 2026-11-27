@@ -15,7 +15,7 @@ class CrearCheckoutEmpresa
   public function __construct(private ConfirmarPagoEmpresa $confirmar) {}
 
   /**
-   * @return array{url: string, modo: string, proceso_id: int, monto_centavos: int}
+   * @return array{url: string|null, modo: string, proceso_id: int, monto_centavos: int, moneda: string, cantidad_candidatos: int}
    */
   public function handle(Proceso $proceso): array
   {
@@ -53,7 +53,7 @@ class CrearCheckoutEmpresa
         ['proceso_id' => $proceso->id],
         [
           'monto_centavos' => $monto,
-          'moneda' => config('stripe.moneda', 'usd'),
+          'moneda' => config('stripe.moneda', 'bob'),
           'estado' => 'PENDIENTE',
         ],
       );
@@ -63,6 +63,7 @@ class CrearCheckoutEmpresa
         'url' => null,
         'proceso_id' => $proceso->id,
         'monto_centavos' => $monto,
+        'moneda' => config('stripe.moneda', 'bob'),
         'cantidad_candidatos' => $cantidad,
         'ampliacion' => $esAmpliacion,
       ];
@@ -80,7 +81,7 @@ class CrearCheckoutEmpresa
       'line_items' => [[
         'quantity' => $cantidad,
         'price_data' => [
-          'currency' => config('stripe.moneda', 'usd'),
+          'currency' => config('stripe.moneda', 'bob'),
           'unit_amount' => (int) config('stripe.precio_centavos_por_vacante', 1500),
           'product_data' => [
             'name' => 'Evaluación de personal — '.$proceso->solicitud->cargo,
@@ -95,7 +96,7 @@ class CrearCheckoutEmpresa
       [
         'stripe_checkout_session_id' => $session->id,
         'monto_centavos' => $monto,
-        'moneda' => config('stripe.moneda', 'usd'),
+        'moneda' => config('stripe.moneda', 'bob'),
         'estado' => 'PENDIENTE',
       ],
     );
@@ -105,6 +106,7 @@ class CrearCheckoutEmpresa
       'url' => $session->url,
       'proceso_id' => $proceso->id,
       'monto_centavos' => $monto,
+      'moneda' => config('stripe.moneda', 'bob'),
       'cantidad_candidatos' => $cantidad,
       'ampliacion' => $esAmpliacion,
     ];
