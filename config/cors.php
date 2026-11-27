@@ -1,5 +1,22 @@
 <?php
 
+$frontendOrigins = env('FRONTEND_ORIGINS', env('FRONTEND_URL', 'http://localhost:5173'));
+
+$allowedOrigins = array_values(array_unique(array_filter(array_map(
+    static function (string $url): ?string {
+        $parts = parse_url(trim($url));
+
+        if (! is_array($parts) || ! isset($parts['scheme'], $parts['host'])
+            || ! in_array($parts['scheme'], ['http', 'https'], true)) {
+            return null;
+        }
+
+        return $parts['scheme'].'://'.$parts['host']
+            .(isset($parts['port']) ? ':'.$parts['port'] : '');
+    },
+    explode(',', $frontendOrigins),
+))));
+
 return [
 
     /*
@@ -20,7 +37,7 @@ return [
     'allowed_methods' => ['*'],
 
     // Frontend React + Vite; varios orígenes separados por coma
-    'allowed_origins' => array_map('trim', explode(',', env('FRONTEND_URL', 'http://localhost:5173'))),
+    'allowed_origins' => $allowedOrigins,
 
     'allowed_origins_patterns' => env('APP_ENV', 'production') === 'local'
         ? ['#^http://(localhost|127\.0\.0\.1):\d+$#']
