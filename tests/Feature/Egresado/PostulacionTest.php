@@ -50,7 +50,6 @@ class PostulacionTest extends TestCase
                 ['codigo' => 'SELECCION', 'nombre' => 'Selección', 'orden' => 7, 'estado' => 'BLOQUEADA'],
             ])
 
-
             ->assertJsonCount(4, 'data.requisitos')
             ->assertJsonPath('data.requisitos_completos', false);
         $this->assertMatchesRegularExpression('/^T\d{2}-[A-HJ-NP-Z2-9]{6}$/', $respuesta->json('data.codigo'));
@@ -184,7 +183,11 @@ class PostulacionTest extends TestCase
         $detalle = $this->actingAs($usuario, 'sanctum')->getJson(route('egresado.postulaciones.show', $propia));
         $detalleAjeno = $this->actingAs($usuario, 'sanctum')->getJson(route('egresado.postulaciones.show', $ajena));
 
-        $lista->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $propia->id)->assertJsonMissingPath('data.0.etapas');
+        $lista->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $propia->id)
+            ->assertJsonCount(7, 'data.0.etapas')
+            ->assertJsonPath('data.0.etapas.0.codigo', 'INSCRIPCION');
         $detalle->assertOk()->assertJsonPath('data.id', $propia->id)->assertJsonCount(7, 'data.etapas');
         $detalleAjeno->assertNotFound();
 

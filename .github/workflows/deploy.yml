@@ -1,0 +1,133 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Publicar el backend en el servidor
+        type: boolean
+        default: false
+      run_migrations:
+        description: Ejecutar migraciones pendientes del esquema talento
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: tecno_db_test
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci_ephemeral
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      APP_ENV: testing
+      APP_DEBUG: 'false'
+      APP_KEY: base64:Y2ljZHRlc3RrZXkxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
+      DB_CONNECTION: pgsql
+      DB_URL: ''
+      DB_HOST: 127.0.0.1
+      DB_PORT: '5432'
+      DB_DATABASE: tecno_db_test
+      DB_USERNAME: ci
+      DB_PASSWORD: ci_ephemeral
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4.28'
+          extensions: mbstring, dom, xml, fileinfo, curl, zip, pdo_pgsql, bcmath, gd
+          tools: composer:v2
+          coverage: none
+      - name: Instalar dependencias bloqueadas
+        run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Preparar entorno aislado
+        run: cp .env.example .env
+      - name: Pruebas con PostgreSQL temporal
+        run: php vendor/bin/phpunit
+      - name: Validar migraciones con esquema aislado de produccion
+        env:
+          PGPASSWORD: ci_ephemeral
+          DB_DATABASE: tecno_deploy_test
+          DB_SEARCH_PATH: talento
+          DB_MIGRATIONS_TABLE: talento.migrations
+        run: |
+          psql -h 127.0.0.1 -U ci -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE tecno_deploy_test'
+          php .github/deployment/prepare.php
+          php artisan migrate --force --no-interaction
+      - name: Dependencias de produccion
+        run: |
+          composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress --no-scripts
+          composer check-platform-reqs --no-dev
+      - name: Empaquetar sin credenciales ni archivos de usuarios
+        run: |
+          tar --exclude='bootstrap/cache/*.php' \
+            --exclude='database/*.sqlite*' \
+            --exclude='public/hot' --exclude='public/storage' \
+            -czf "$RUNNER_TEMP/release.tar.gz" \
+            app bootstrap config database lang public resources routes vendor \
+            artisan composer.json composer.lock .env.production.example .github/deployment
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-release
+          path: ${{ runner.temp }}/release.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      ((github.event_name == 'workflow_dispatch' && inputs.deploy) ||
+       (github.event_name == 'push' && vars.AUTO_DEPLOY == 'true'))
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-release
+          path: ${{ runner.temp }}
+      - name: Desplegar por SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
+          PHP_BIN: ${{ vars.PHP_BIN || 'php' }}
+          PHP_WEB_USER: ${{ vars.PHP_WEB_USER || 'apache' }}
+          RUN_MIGRATIONS: ${{ (inputs.run_migrations || vars.RUN_MIGRATIONS == 'true') && 'true' || 'false' }}
+        run: bash .github/scripts/deploy.sh

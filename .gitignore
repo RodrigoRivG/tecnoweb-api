@@ -36,3 +36,7 @@ desktop.ini
 /.claude/skills
 /.claude/settings.local.json
 /.junie
+
+.env.*
+!.env.example
+!.env.production.example
