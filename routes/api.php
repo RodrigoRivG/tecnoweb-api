@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\Admin\BitacoraController;
 use App\Http\Controllers\Api\V1\Admin\CarreraController;
 use App\Http\Controllers\Api\V1\Admin\ConvocatoriaAdminController;
+use App\Http\Controllers\Api\V1\Admin\EstadisticasController;
 use App\Http\Controllers\Api\V1\Admin\FacultadController;
 use App\Http\Controllers\Api\V1\Admin\PerfilIdealController;
 use App\Http\Controllers\Api\V1\Admin\PreguntaAdminController;
@@ -142,6 +143,7 @@ Route::prefix('v1')->group(function () {
 
         Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('bitacora', BitacoraController::class)->middleware('permiso:bitacora.ver')->name('bitacora');
+            Route::get('estadisticas', EstadisticasController::class)->middleware('permiso:estadisticas.ver')->name('estadisticas');
 
             Route::middleware('permiso:facultades.gestionar')->group(function () {
                 Route::apiResource('facultades', FacultadController::class)
