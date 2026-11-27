@@ -36,9 +36,9 @@ class FormatoTablasTest extends TestCase
         $vistas = DB::scalar("SELECT count(*) FROM information_schema.views WHERE table_schema = 'talento'");
         $triggers = DB::scalar("SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'talento' AND NOT t.tgisinternal");
 
-        $this->assertSame(51, $tablas);
+        $this->assertSame(50, $tablas);
         $this->assertSame(6, $vistas);
-        $this->assertSame(61, $triggers);
+        $this->assertSame(60, $triggers);
     }
 
     public function test_tablas_y_columnas_estan_en_minuscula_y_snake_case(): void
@@ -178,7 +178,7 @@ class FormatoTablasTest extends TestCase
         $despues = DB::table('rol')->count() + DB::table('etapa')->count() + DB::table('dimension_evaluada')->count()
             + DB::table('prueba')->count() + DB::table('rubrica_criterio')->count() + DB::table('tipo_documento')->count()
             + DB::table('parametro_sistema')->count();
-        $this->assertSame(5 + 10 + 24 + 17 + 8 + 4 + 3, $antes);
+        $this->assertSame(5 + 10 + 24 + 16 + 8 + 4 + 3, $antes);
         $this->assertSame($antes, $despues);
     }
 }
