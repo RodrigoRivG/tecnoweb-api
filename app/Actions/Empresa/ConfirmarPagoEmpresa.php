@@ -17,17 +17,27 @@ class ConfirmarPagoEmpresa
 
     public function handle(Proceso $proceso, ?string $stripeSessionId, ?string $paymentIntentId, string $estadoPago = 'COMPLETADO'): Proceso
     {
-        if ($proceso->estado === EstadoProceso::EnCurso) {
-            return $this->confirmarAmpliacion($proceso, $stripeSessionId, $paymentIntentId, $estadoPago);
-        }
-
-        if ($proceso->estado !== EstadoProceso::PendientePago) {
-            throw ValidationException::withMessages([
-                'proceso' => 'Este proceso no está pendiente de pago.',
-            ]);
-        }
-
         return DB::transaction(function () use ($proceso, $stripeSessionId, $paymentIntentId, $estadoPago): Proceso {
+            $proceso = Proceso::query()->lockForUpdate()->findOrFail($proceso->id);
+
+            if ($stripeSessionId !== null && PagoProceso::query()
+                ->where('proceso_id', $proceso->id)
+                ->where('stripe_checkout_session_id', $stripeSessionId)
+                ->where('estado', 'COMPLETADO')
+                ->exists()) {
+                return $proceso;
+            }
+
+            if ($proceso->estado === EstadoProceso::EnCurso) {
+                return $this->confirmarAmpliacion($proceso, $stripeSessionId, $paymentIntentId, $estadoPago);
+            }
+
+            if ($proceso->estado !== EstadoProceso::PendientePago) {
+                throw ValidationException::withMessages([
+                    'proceso' => 'Este proceso no está pendiente de pago.',
+                ]);
+            }
+
             $proceso->update(['estado' => EstadoProceso::PendienteCandidatos]);
 
             $monto = $this->montoEsperado($proceso);
