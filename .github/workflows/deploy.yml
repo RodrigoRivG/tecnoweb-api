@@ -86,6 +86,20 @@ jobs:
         run: |
           composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress --no-scripts
           composer check-platform-reqs --no-dev
+      - name: Verificar seeders demo con dependencias de produccion
+        env:
+          DB_DATABASE: tecno_deploy_test
+          DB_SEARCH_PATH: talento
+          DB_MIGRATIONS_TABLE: talento.migrations
+        run: |
+          demo_dir="$RUNNER_TEMP/demo-check"
+          mkdir -p "$demo_dir"
+          cp -a app bootstrap config database lang public resources routes vendor storage artisan .env "$demo_dir/"
+          cd "$demo_dir"
+          rm -f bootstrap/cache/*.php
+          php artisan package:discover --no-interaction
+          php artisan db:seed --force --no-interaction --env=production > "$RUNNER_TEMP/demo-seed.log" 2>&1 || { tail -n 80 "$RUNNER_TEMP/demo-seed.log"; exit 1; }
+          php artisan talento:sembrar-usuarios-demo --env=local --no-interaction
       - name: Empaquetar sin credenciales ni archivos de usuarios
         run: |
           tar --exclude='bootstrap/cache/*.php' \
