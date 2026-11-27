@@ -27,7 +27,7 @@ class CatalogoSeeder extends Seeder
         DB::transaction(function (): void {
             Rol::query()->upsert([
                 ['codigo' => 'ADMIN', 'nombre' => 'Administrador de la consultora', 'descripcion' => 'Configura procesos, pruebas, ranking y solicitudes', 'es_panel' => true, 'alcance_carrera' => false],
-                ['codigo' => 'AYUDANTE', 'nombre' => 'Ayudante / junior de carrera', 'descripcion' => 'Revisa tareas manuales: CV, entrevista y antecedentes', 'es_panel' => true, 'alcance_carrera' => true],
+                ['codigo' => 'AYUDANTE', 'nombre' => 'Ayudante', 'descripcion' => 'Personal de consultora: CV, entrevista y antecedentes (alcance global)', 'es_panel' => true, 'alcance_carrera' => false],
                 ['codigo' => 'EGRESADO', 'nombre' => 'Egresado UAGRM', 'descripcion' => 'Postula al talento universitario', 'es_panel' => false, 'alcance_carrera' => false],
                 ['codigo' => 'CANDIDATO_EXTERNO', 'nombre' => 'Candidato de empresa', 'descripcion' => 'Persona invitada por una empresa cliente', 'es_panel' => false, 'alcance_carrera' => false],
                 ['codigo' => 'EMPRESA', 'nombre' => 'Empresa cliente', 'descripcion' => 'Solicita evaluaciones y recibe informes', 'es_panel' => false, 'alcance_carrera' => false],

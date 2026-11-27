@@ -56,5 +56,7 @@ class DemoSeeder extends Seeder
                     'numero' => 1,
                 ]);
             });
+
+        $this->call(UsuariosPanelSeeder::class);
     }
 }

@@ -28,19 +28,6 @@ class PostulacionEvaluadorController extends Controller
             'ranking',
         ])->orderByDesc('id');
 
-        $usuario = $request->user();
-
-        if ($usuario->rol?->alcance_carrera) {
-            $carreraIds = $usuario->carreras()->pluck('carrera.id');
-
-            if ($carreraIds->isNotEmpty()) {
-                $consulta->where(function ($filtro) use ($carreraIds) {
-                    $filtro->whereHas('proceso.convocatoria', fn ($convocatoria) => $convocatoria->whereIn('carrera_id', $carreraIds))
-                        ->orWhereHas('proceso.solicitud', fn ($solicitud) => $solicitud->whereIn('carrera_id', $carreraIds));
-                });
-            }
-        }
-
         if ($request->filled('proceso_id')) {
             $consulta->where('proceso_id', (int) $request->query('proceso_id'));
         }

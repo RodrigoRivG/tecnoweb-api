@@ -30,8 +30,10 @@ use App\Models\ResultadoPrueba;
 use App\Models\RubricaCriterio;
 use App\Models\Usuario;
 use Database\Seeders\CandidatosCompletosSeeder;
+use Database\Seeders\DemoSeeder;
 use Database\Seeders\EmbudoEvaluacionPanelSeeder;
 use Database\Seeders\EstudiantesPruebaSeeder;
+use Database\Seeders\UsuariosPanelSeeder;
 use Database\Seeders\PermisoSeeder;
 use Database\Seeders\UagrmFacultadesCarrerasSeeder;
 use Illuminate\Foundation\Inspiring;
@@ -485,6 +487,17 @@ Artisan::command('talento:sembrar-embudo-panel', function () {
     (new EmbudoEvaluacionPanelSeeder)->setCommand($this)->run();
     $this->call('talento:resincronizar-postulaciones');
 })->purpose('Crea egresados y candidatos de empresa en fases 6/7 (CV/entrevista) y resincroniza etapas.');
+
+Artisan::command('talento:sembrar-usuarios-demo', function () {
+    (new DemoSeeder)->setCommand($this)->run();
+    (new EstudiantesPruebaSeeder)->setCommand($this)->run();
+    (new EmbudoEvaluacionPanelSeeder)->setCommand($this)->run();
+    $this->call('talento:resincronizar-postulaciones');
+    $this->info('');
+    $this->info('Cuentas: admin@talento.test / admin12345');
+    $this->info('Ayudantes: ayudante@talento.test · ayudante2@talento.test / ayudante12345');
+    $this->info('Egresados demo: fase5…fase8, cv.panel@, entrevista.panel@, empresa.embudo@ → ver EmbudoEvaluacionPanelSeeder');
+})->purpose('Admin, ayudantes, egresados por fase y embudo de panel (entorno local).');
 
 Artisan::command('talento:resincronizar-postulaciones {--id=}', function (
     AvanzarEtapaTrasResultados $avanzar,

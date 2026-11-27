@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Enums\EstadoUsuario;
 use App\Http\Controllers\Controller;
-use App\Models\Carrera;
 use App\Models\Permiso;
 use App\Models\Persona;
 use App\Models\Rol;
@@ -22,7 +21,7 @@ class UsuarioAdminController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Usuario::with(['rol', 'persona', 'carreras.facultad']);
+        $query = Usuario::with(['rol', 'persona']);
 
         if ($request->filled('rol_id')) {
             $query->where('rol_id', $request->integer('rol_id'));
@@ -50,22 +49,16 @@ class UsuarioAdminController extends Controller
         return response()->json([
             'data' => $usuarios->map(fn (Usuario $usuario) => $this->presentar($usuario)),
             'roles' => Rol::query()->orderBy('id')->get()->map(fn (Rol $rol) => $this->presentarRol($rol)),
-            'carreras' => Carrera::query()->with('facultad')->orderBy('nombre')->get()->map(fn (Carrera $carrera) => [
-                'id' => $carrera->id,
-                'nombre' => $carrera->nombre,
-                'facultad' => $carrera->facultad?->nombre,
-            ]),
         ]);
     }
 
     /**
-     * Registra un usuario del equipo interno y, si el rol lo pide, sus carreras.
+     * Registra un usuario del equipo interno (panel).
      */
     public function store(Request $request): JsonResponse
     {
         $datos = $this->validarCuenta($request);
         $rol = $this->rolInterno($datos['rol_id']);
-        $this->validarCarreras($rol, $datos['carrera_ids'] ?? []);
 
         $usuario = DB::transaction(function () use ($datos, $rol) {
             $usuario = Usuario::create([
@@ -87,11 +80,7 @@ class UsuarioAdminController extends Controller
                 'correo_contacto' => strtolower(trim($datos['correo'])),
             ]);
 
-            if ($rol->alcance_carrera) {
-                $usuario->carreras()->sync($datos['carrera_ids'] ?? []);
-            }
-
-            return $usuario->load(['rol', 'persona', 'carreras.facultad']);
+            return $usuario->load(['rol', 'persona']);
         });
 
         return response()->json([
@@ -101,20 +90,14 @@ class UsuarioAdminController extends Controller
     }
 
     /**
-     * Actualiza el rol, el estado, la identidad o las carreras de un usuario.
+     * Actualiza el rol, el estado o la identidad de un usuario del panel.
      */
     public function update(Request $request, int $id): JsonResponse
     {
         $usuario = Usuario::with('persona')->findOrFail($id);
         $datos = $this->validarCuenta($request, $usuario);
 
-        $rol = isset($datos['rol_id']) ? Rol::query()->findOrFail($datos['rol_id']) : $usuario->rol;
-
-        if (array_key_exists('carrera_ids', $datos)) {
-            $this->validarCarreras($rol, $datos['carrera_ids']);
-        }
-
-        DB::transaction(function () use ($usuario, $datos, $rol) {
+        DB::transaction(function () use ($usuario, $datos) {
             if (isset($datos['correo'])) {
                 $usuario->correo = strtolower(trim($datos['correo']));
             }
@@ -149,16 +132,11 @@ class UsuarioAdminController extends Controller
                 $persona->save();
             }
 
-            if (array_key_exists('carrera_ids', $datos)) {
-                $usuario->carreras()->sync($rol->alcance_carrera ? $datos['carrera_ids'] : []);
-            } elseif (isset($datos['rol_id']) && ! $rol->alcance_carrera) {
-                $usuario->carreras()->detach();
-            }
         });
 
         return response()->json([
             'mensaje' => 'Usuario actualizado correctamente.',
-            'data' => $this->presentar($usuario->fresh(['rol', 'persona', 'carreras.facultad'])),
+            'data' => $this->presentar($usuario->fresh(['rol', 'persona'])),
         ]);
     }
 
@@ -197,7 +175,6 @@ class UsuarioAdminController extends Controller
             'nombre' => ['required', 'string', 'max:60'],
             'descripcion' => ['nullable', 'string', 'max:255'],
             'es_panel' => ['required', 'boolean'],
-            'alcance_carrera' => ['required', 'boolean'],
         ]);
 
         $rol = Rol::create([
@@ -205,7 +182,7 @@ class UsuarioAdminController extends Controller
             'nombre' => $datos['nombre'],
             'descripcion' => $datos['descripcion'] ?? null,
             'es_panel' => $datos['es_panel'],
-            'alcance_carrera' => $datos['alcance_carrera'],
+            'alcance_carrera' => false,
         ]);
 
         return response()->json([
@@ -265,8 +242,6 @@ class UsuarioAdminController extends Controller
             ],
             'fecha_nacimiento' => [$alta ? 'required' : 'required_with:nombres', 'date', 'before:today'],
             'telefono' => ['nullable', 'string', 'max:20'],
-            'carrera_ids' => ['sometimes', 'array'],
-            'carrera_ids.*' => ['integer', Rule::exists(Carrera::class, 'id')],
         ]);
     }
 
@@ -284,18 +259,6 @@ class UsuarioAdminController extends Controller
     }
 
     /**
-     * @param  list<int>  $carreraIds
-     */
-    private function validarCarreras(Rol $rol, array $carreraIds): void
-    {
-        if (! $rol->alcance_carrera && $carreraIds !== []) {
-            throw ValidationException::withMessages([
-                'carrera_ids' => 'Este rol no se limita por carrera.',
-            ]);
-        }
-    }
-
-    /**
      * @return array<string, mixed>
      */
     private function presentar(Usuario $usuario): array
@@ -306,8 +269,6 @@ class UsuarioAdminController extends Controller
             'estado' => $usuario->estado?->value ?? $usuario->estado,
             'ultimo_acceso' => $usuario->ultimo_acceso?->toIso8601String(),
             'rol' => $usuario->rol ? $this->presentarRol($usuario->rol) : null,
-            'carrera_ids' => $usuario->carreras->pluck('id')->all(),
-            'carreras' => $usuario->carreras->map(fn (Carrera $carrera) => $carrera->nombre)->all(),
             'persona' => $usuario->persona ? [
                 'id' => $usuario->persona->id,
                 'nombres' => $usuario->persona->nombres,

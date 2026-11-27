@@ -3,7 +3,6 @@
 namespace Tests\Feature\Admin;
 
 use App\Enums\CodigoRol;
-use App\Models\Carrera;
 use App\Models\Permiso;
 use App\Models\Persona;
 use App\Models\Usuario;
@@ -20,15 +19,13 @@ class UsuarioStaffTest extends TestCase
         $this->seed(PermisoSeeder::class);
 
         $admin = Usuario::factory()->conRol(CodigoRol::Admin)->create();
-        $carrera = Carrera::factory()->create();
 
         $rol = $this->actingAs($admin, 'sanctum')
             ->postJson(route('admin.roles.store'), [
                 'codigo' => 'SECRETARIO',
                 'nombre' => 'Secretario',
-                'descripcion' => 'Apoyo de carrera',
+                'descripcion' => 'Apoyo administrativo',
                 'es_panel' => true,
-                'alcance_carrera' => true,
             ])
             ->assertCreated()
             ->json('data');
@@ -52,7 +49,6 @@ class UsuarioStaffTest extends TestCase
                 'ci_numero' => '5566778',
                 'fecha_nacimiento' => '1998-04-12',
                 'telefono' => '70011122',
-                'carrera_ids' => [$carrera->id],
             ])
             ->assertCreated();
 
@@ -62,10 +58,6 @@ class UsuarioStaffTest extends TestCase
             'usuario_id' => $usuarioId,
             'ci_numero' => '5566778',
             'apellido_paterno' => 'Rojas',
-        ]);
-        $this->assertDatabaseHas('talento.ayudante_carrera', [
-            'usuario_id' => $usuarioId,
-            'carrera_id' => $carrera->id,
         ]);
 
         $login = $this->postJson(route('auth.login'), [
