@@ -7,10 +7,10 @@ use App\Http\Controllers\Api\V1\AutenticacionController;
 use App\Http\Controllers\Controller;
 use App\Models\Carrera;
 use App\Models\DimensionEvaluada;
+use App\Support\ReglasValidacionCuenta;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 
 class RegistroSolicitudController extends Controller
 {
@@ -39,21 +39,24 @@ class RegistroSolicitudController extends Controller
 
     public function store(Request $request, RegistrarSolicitudEmpresa $registrar): JsonResponse
     {
-        $datos = $request->validate([
-            'razon_social' => ['required', 'string', 'max:200'],
-            'nit' => ['required', 'string', 'max:20'],
-            'correo_empresa' => ['required', 'email', 'max:190'],
-            'telefono' => ['nullable', 'string', 'max:30'],
-            'nombres' => ['required', 'string', 'max:100'],
-            'apellido_paterno' => ['required', 'string', 'max:60'],
-            'apellido_materno' => ['nullable', 'string', 'max:60'],
-            'ci_numero' => ['required', 'string', 'max:15'],
-            'ci_expedido' => ['nullable', Rule::in(['LP', 'CB', 'SC', 'OR', 'PT', 'CH', 'TJ', 'BE', 'PD'])],
-            'fecha_nacimiento' => ['required', 'date', 'before:today'],
-            'correo_contacto' => ['required', 'email', 'max:190'],
-            'password' => ['required', 'string', 'confirmed', Password::min(8)->letters()->numbers()],
-            'cargo_contacto' => ['nullable', 'string', 'max:100'],
-        ]);
+        $datos = $request->validate(
+            [
+                'razon_social' => ['required', 'string', 'max:200'],
+                'nit' => ReglasValidacionCuenta::nitBolivia(),
+                'correo_empresa' => ['required', 'email', 'max:190', 'different:correo_contacto'],
+                'telefono' => ReglasValidacionCuenta::telefonoBolivia(),
+                'nombres' => ['required', 'string', 'max:100'],
+                'apellido_paterno' => ['required', 'string', 'max:60'],
+                'apellido_materno' => ['nullable', 'string', 'max:60'],
+                'ci_numero' => ReglasValidacionCuenta::ciNumero(),
+                'ci_expedido' => ReglasValidacionCuenta::ciExpedidoBolivia(),
+                'fecha_nacimiento' => ReglasValidacionCuenta::fechaMayoriaDeEdad(),
+                'correo_contacto' => ['required', 'email', 'max:190'],
+                'password' => ReglasValidacionCuenta::passwordAlta(),
+                'cargo_contacto' => ['nullable', 'string', 'max:100'],
+            ],
+            ReglasValidacionCuenta::mensajes(),
+        );
 
         $resultado = $registrar->handle($datos, $request->ip());
         $usuario = $resultado['usuario'];

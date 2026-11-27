@@ -6,6 +6,12 @@ return [
 
     'registro' => [
         'menor_de_edad' => 'Debes ser mayor de 18 años para registrarte.',
+        'fecha_nacimiento_invalida' => 'La fecha de nacimiento no es válida (a partir de 1940).',
+        'ci_formato' => 'La cédula debe contener solo números (entre 4 y 15 dígitos).',
+        'telefono_formato' => 'El teléfono debe tener 7 u 8 dígitos (Bolivia).',
+        'nit_formato' => 'El NIT debe tener entre 7 y 15 dígitos.',
+        'correo_empresa_distinto' => 'El correo de la empresa debe ser distinto al correo de acceso del representante.',
+        'ci_expedido_requerido' => 'Indica el departamento de expedición del carnet.',
         'ci_con_cuenta' => 'Ya existe una cuenta con este CI. Inicia sesión.',
         'ci_sin_cuenta' => 'Este CI ya está registrado en el sistema. Comunícate con la consultora para activar tu cuenta.',
         'carrera_inactiva' => 'La carrera seleccionada no está disponible.',

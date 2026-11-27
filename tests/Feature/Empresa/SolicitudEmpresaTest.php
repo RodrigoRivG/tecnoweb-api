@@ -37,6 +37,7 @@ class SolicitudEmpresaTest extends TestCase
             'nombres' => 'Laura',
             'apellido_paterno' => 'Mendez',
             'ci_numero' => '555111',
+            'ci_expedido' => 'LP',
             'fecha_nacimiento' => '1990-04-02',
             'correo_contacto' => 'laura@norte.test',
             'password' => 'Norte1234',

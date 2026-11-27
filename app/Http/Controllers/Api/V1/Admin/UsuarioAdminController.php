@@ -8,6 +8,7 @@ use App\Models\Permiso;
 use App\Models\Persona;
 use App\Models\Rol;
 use App\Models\Usuario;
+use App\Support\ReglasValidacionCuenta;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -226,23 +227,26 @@ class UsuarioAdminController extends Controller
         $personaId = $usuario?->persona?->id;
         $alta = $usuario === null;
 
-        return $request->validate([
-            'correo' => [$alta ? 'required' : 'sometimes', 'required', 'string', 'email', 'max:190', Rule::unique(Usuario::class, 'correo')->ignore($usuario?->id)],
-            'password' => [$alta ? 'required' : 'sometimes', 'nullable', 'string', 'min:6', 'max:100'],
-            'rol_id' => [$alta ? 'required' : 'sometimes', 'integer', Rule::exists(Rol::class, 'id')],
-            'estado' => ['sometimes', Rule::in(['ACTIVO', 'BLOQUEADO', 'INACTIVO'])],
-            'nombres' => [$alta ? 'required' : 'sometimes', 'required', 'string', 'max:100'],
-            'apellido_paterno' => [$alta ? 'required' : 'required_with:nombres', 'string', 'max:60'],
-            'apellido_materno' => ['nullable', 'string', 'max:60'],
-            'ci_numero' => [
-                $alta ? 'required' : 'required_with:nombres',
-                'string',
-                'max:15',
-                Rule::unique(Persona::class, 'ci_numero')->where(fn ($q) => $q->where('ci_complemento', ''))->ignore($personaId),
+        return $request->validate(
+            [
+                'correo' => [$alta ? 'required' : 'sometimes', 'required', 'string', 'email', 'max:190', Rule::unique(Usuario::class, 'correo')->ignore($usuario?->id)],
+                'password' => $alta ? ReglasValidacionCuenta::passwordPanelAlta() : ReglasValidacionCuenta::passwordEdicion(),
+                'rol_id' => [$alta ? 'required' : 'sometimes', 'integer', Rule::exists(Rol::class, 'id')],
+                'estado' => ['sometimes', Rule::in(['ACTIVO', 'BLOQUEADO', 'INACTIVO'])],
+                'nombres' => [$alta ? 'required' : 'sometimes', 'required', 'string', 'max:100'],
+                'apellido_paterno' => [$alta ? 'required' : 'required_with:nombres', 'string', 'max:60'],
+                'apellido_materno' => ['nullable', 'string', 'max:60'],
+                'ci_numero' => [
+                    ...ReglasValidacionCuenta::ciNumero($alta || $request->filled('nombres')),
+                    Rule::unique(Persona::class, 'ci_numero')
+                        ->where(fn ($q) => $q->where('ci_complemento', ''))
+                        ->ignore($personaId),
+                ],
+                'fecha_nacimiento' => ReglasValidacionCuenta::fechaMayoriaDeEdad($alta || $request->filled('nombres')),
+                'telefono' => ReglasValidacionCuenta::telefonoBolivia(),
             ],
-            'fecha_nacimiento' => [$alta ? 'required' : 'required_with:nombres', 'date', 'before:today'],
-            'telefono' => ['nullable', 'string', 'max:20'],
-        ]);
+            ReglasValidacionCuenta::mensajes(),
+        );
     }
 
     private function rolInterno(int $rolId): Rol

@@ -114,7 +114,7 @@ class RegistroEgresadoTest extends TestCase
             'contraseña sin confirmar' => [['password_confirmation' => 'otra1234'], 'password', 'La confirmación de contraseña no coincide.'],
             'ppa fuera de rango' => [['ppa' => '100.50'], 'ppa', 'El campo PPA debe estar entre 0 y 100.'],
             'ppa con tres decimales' => [['ppa' => '70.555'], 'ppa', 'El PPA puede tener hasta 2 decimales.'],
-            'ci con letras' => [['ci_numero' => '12AB45'], 'ci_numero', 'El formato de número de CI no es válido.'],
+            'ci con letras' => [['ci_numero' => '12AB45'], 'ci_numero', 'La cédula debe contener solo números (entre 4 y 15 dígitos).'],
             'departamento inválido' => [['ci_expedido' => 'XX'], 'ci_expedido', 'El valor de departamento de expedición no es válido.'],
             'año de egreso futuro' => [['anio_egreso' => 2027], 'anio_egreso', 'El campo año de egreso debe estar entre 1950 y 2026.'],
         ];

@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Enums\CodigoRol;
 use App\Models\Permiso;
 use App\Models\Persona;
+use App\Models\Rol;
 use App\Models\Usuario;
 use Database\Seeders\PermisoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -42,6 +43,7 @@ class UsuarioStaffTest extends TestCase
             ->postJson(route('admin.usuarios.store'), [
                 'correo' => 'secretario@talento.test',
                 'password' => 'secreto1',
+                'password_confirmation' => 'secreto1',
                 'rol_id' => $rol['id'],
                 'nombres' => 'Ana',
                 'apellido_paterno' => 'Rojas',
@@ -81,5 +83,25 @@ class UsuarioStaffTest extends TestCase
         $this->actingAs($secretario, 'sanctum')
             ->getJson(route('evaluador.postulaciones.entrevista', 1))
             ->assertForbidden();
+    }
+
+    public function test_alta_rechaza_menor_de_edad_y_ci_invalida(): void
+    {
+        $this->seed(PermisoSeeder::class);
+        $admin = Usuario::factory()->conRol(CodigoRol::Admin)->create();
+        $rol = Rol::query()->where('codigo', CodigoRol::Ayudante->value)->firstOrFail();
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson(route('admin.usuarios.store'), [
+                'correo' => 'menor@talento.test',
+                'password' => 'secreto1',
+                'rol_id' => $rol->id,
+                'nombres' => 'Luis',
+                'apellido_paterno' => 'Perez',
+                'ci_numero' => '12A',
+                'fecha_nacimiento' => now()->subYears(10)->toDateString(),
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['ci_numero', 'fecha_nacimiento']);
     }
 }

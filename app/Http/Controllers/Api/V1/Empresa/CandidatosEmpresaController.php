@@ -7,6 +7,7 @@ use App\Actions\Empresa\RegistrarCandidatosEmpresa;
 use App\Enums\EstadoProceso;
 use App\Http\Controllers\Controller;
 use App\Models\Proceso;
+use App\Support\ReglasValidacionCuenta;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -22,16 +23,20 @@ class CandidatosEmpresaController extends Controller
             ->exists();
         abort_unless($dueno, 403);
 
-        $datos = $request->validate([
-            'candidatos' => ['required', 'array', 'min:1', 'max:50'],
-            'candidatos.*.nombres' => ['required', 'string', 'max:100'],
-            'candidatos.*.apellido_paterno' => ['required', 'string', 'max:60'],
-            'candidatos.*.apellido_materno' => ['nullable', 'string', 'max:60'],
-            'candidatos.*.ci_numero' => ['required', 'string', 'max:15'],
-            'candidatos.*.fecha_nacimiento' => ['required', 'date', 'before:today'],
-            'candidatos.*.correo' => ['required', 'email', 'max:190'],
-            'ampliar' => ['sometimes', 'boolean'],
-        ]);
+        $datos = $request->validate(
+            [
+                'candidatos' => ['required', 'array', 'min:1', 'max:50'],
+                'candidatos.*.nombres' => ['required', 'string', 'max:100'],
+                'candidatos.*.apellido_paterno' => ['required', 'string', 'max:60'],
+                'candidatos.*.apellido_materno' => ['nullable', 'string', 'max:60'],
+                'candidatos.*.ci_numero' => ReglasValidacionCuenta::ciNumero(),
+                'candidatos.*.fecha_nacimiento' => ReglasValidacionCuenta::fechaMayoriaDeEdad(),
+                'candidatos.*.correo' => ['required', 'email', 'max:190'],
+                'candidatos.*.telefono' => ReglasValidacionCuenta::telefonoBolivia(),
+                'ampliar' => ['sometimes', 'boolean'],
+            ],
+            ReglasValidacionCuenta::mensajes(),
+        );
 
         $ampliar = (bool) ($datos['ampliar'] ?? false);
         $accesos = $registrar->handle($proceso, $datos['candidatos'], $request->ip(), $ampliar);

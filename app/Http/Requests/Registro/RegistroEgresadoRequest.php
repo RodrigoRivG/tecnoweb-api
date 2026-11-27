@@ -8,11 +8,11 @@ use App\Models\Carrera;
 use App\Models\Egresado;
 use App\Models\Persona;
 use App\Models\Usuario;
+use App\Support\ReglasValidacionCuenta;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\Validator;
 
 class RegistroEgresadoRequest extends FormRequest
@@ -24,19 +24,17 @@ class RegistroEgresadoRequest extends FormRequest
      */
     public function rules(): array
     {
-        $mayoriaDeEdad = today(config('app.zona_horaria_negocio'))->subYears(18)->toDateString();
-
         return [
             'correo' => ['required', 'string', 'email', 'max:190', Rule::unique(Usuario::class, 'correo')],
-            'password' => ['required', 'string', 'max:255', 'confirmed', Password::min(8)->letters()->numbers()],
+            'password' => ReglasValidacionCuenta::passwordAlta(),
             'nombres' => ['required', 'string', 'max:100'],
             'apellido_paterno' => ['nullable', 'string', 'max:60', 'required_without:apellido_materno'],
             'apellido_materno' => ['nullable', 'string', 'max:60'],
-            'ci_numero' => ['required', 'string', 'regex:/^\d{4,15}$/'],
+            'ci_numero' => ReglasValidacionCuenta::ciNumero(),
             'ci_complemento' => ['string', 'regex:/^[A-Z0-9]{0,3}$/'],
             'ci_expedido' => ['nullable', Rule::enum(DepartamentoCi::class)],
-            'fecha_nacimiento' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.$mayoriaDeEdad],
-            'telefono' => ['nullable', 'string', 'max:20'],
+            'fecha_nacimiento' => [...ReglasValidacionCuenta::fechaMayoriaDeEdad(), 'date_format:Y-m-d'],
+            'telefono' => ReglasValidacionCuenta::telefonoBolivia(),
             'carrera_id' => ['required', 'integer'],
             'area_preferencia_id' => ['nullable', 'integer'],
             'registro_universitario' => ['required', 'string', 'max:20', Rule::unique(Egresado::class, 'registro_universitario')],
@@ -55,8 +53,8 @@ class RegistroEgresadoRequest extends FormRequest
     public function messages(): array
     {
         return [
+            ...ReglasValidacionCuenta::mensajes(),
             'apellido_paterno.required_without' => __('talento.registro.apellido_requerido'),
-            'fecha_nacimiento.before_or_equal' => __('talento.registro.menor_de_edad'),
             'ppa.decimal' => __('talento.registro.ppa_decimales'),
         ];
     }

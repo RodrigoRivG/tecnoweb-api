@@ -17,6 +17,7 @@ use App\Models\ContactoEmpresa;
 use App\Models\Empresa;
 use App\Models\Etapa;
 use App\Models\ParametroSistema;
+use App\Models\Persona;
 use App\Models\Proceso;
 use App\Models\Prueba;
 use App\Models\Rol;
@@ -153,7 +154,10 @@ class RegistrarSolicitudEmpresa
         if (Usuario::query()->where('correo', $datos['correo_contacto'])->exists()) {
             $errores['correo_contacto'] = 'Ese correo de contacto ya tiene una cuenta.';
         }
-        if (DB::table('talento.persona')->where('ci_numero', $datos['ci_numero'])->exists()) {
+        if (Persona::query()
+            ->where('ci_numero', $datos['ci_numero'])
+            ->where('ci_complemento', '')
+            ->exists()) {
             $errores['ci_numero'] = 'Esa cédula ya está registrada.';
         }
 
