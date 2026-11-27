@@ -12,10 +12,8 @@ use App\Enums\TipoConsentimiento;
 use App\Enums\TipoProceso;
 use App\Enums\TipoPrueba;
 use App\Enums\UmbralOrigen;
-use App\Models\CandidatoSolicitud;
 use App\Models\Carrera;
 use App\Models\ContactoEmpresa;
-use App\Models\DimensionEvaluada;
 use App\Models\Empresa;
 use App\Models\Etapa;
 use App\Models\ParametroSistema;
@@ -32,21 +30,15 @@ class RegistrarSolicitudEmpresa
     /**
      * @param  array<string, mixed>  $datos
      */
-    public function handle(array $datos, ?string $ip): Usuario
+    /**
+     * @return array{usuario: Usuario, proceso: Proceso}
+     */
+    public function handle(array $datos, ?string $ip): array
     {
         $this->validarUnicos($datos);
-        $carrera = Carrera::query()->findOrFail($datos['carrera_id']);
-        $dimensiones = DimensionEvaluada::query()
-            ->whereIn('tipo', ['PERSONALIDAD', 'HABILIDAD_BLANDA'])
-            ->pluck('id');
-        $enviados = collect($datos['niveles'])->pluck('dimension_id')->map(fn ($id) => (int) $id)->unique();
-        if ($dimensiones->diff($enviados)->isNotEmpty()) {
-            throw ValidationException::withMessages([
-                'niveles' => 'Indica un valor del 1 al 10 en cada factor de personalidad y cada habilidad blanda.',
-            ]);
-        }
+        $carrera = Carrera::query()->where('activa', true)->orderBy('id')->firstOrFail();
 
-        return DB::transaction(function () use ($datos, $ip, $carrera): Usuario {
+        return DB::transaction(function () use ($datos, $ip, $carrera): array {
             $empresa = Empresa::query()->create([
                 'razon_social' => $datos['razon_social'],
                 'nit' => $datos['nit'],
@@ -92,9 +84,9 @@ class RegistrarSolicitudEmpresa
             $proceso = Proceso::query()->create([
                 'codigo' => $this->codigo(),
                 'tipo' => TipoProceso::Empresa,
-                'nombre' => $datos['cargo'].' · '.$empresa->razon_social,
-                'estado' => EstadoProceso::PendienteAprobacion,
-                'top_n' => min(50, max(1, (int) $datos['vacantes'])),
+                'nombre' => 'Solicitud · '.$empresa->razon_social,
+                'estado' => EstadoProceso::PendientePago,
+                'top_n' => 1,
                 'creado_por' => $usuario->id,
             ]);
 
@@ -102,41 +94,51 @@ class RegistrarSolicitudEmpresa
                 'proceso_id' => $proceso->id,
                 'tipo_proceso' => TipoProceso::Empresa->value,
                 'contacto_id' => $contacto->id,
-                'cargo' => $datos['cargo'],
-                'area' => $datos['area'] ?? null,
-                'nivel_jerarquico' => $datos['nivel_jerarquico'] ?? 'TECNICO',
-                'vacantes' => $datos['vacantes'],
-                'descripcion_funciones' => $datos['descripcion_funciones'],
+                'cargo' => CompletarDatosSolicitudEmpresa::CARGO_PENDIENTE,
+                'area' => null,
+                'nivel_jerarquico' => 'TECNICO',
+                'vacantes' => 1,
+                'descripcion_funciones' => 'Pendiente de completar tras el pago.',
                 'carrera_id' => $carrera->id,
                 'enviada_en' => now(),
             ]);
 
-            foreach ($datos['niveles'] as $nivel) {
-                DB::table('talento.perfil_requerido')->insert([
-                    'proceso_id' => $proceso->id,
-                    'dimension_id' => $nivel['dimension_id'],
-                    'valor_ideal' => $nivel['valor_ideal'],
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
-
-            foreach ($datos['candidatos'] as $candidato) {
-                CandidatoSolicitud::query()->create([
-                    'proceso_id' => $proceso->id,
-                    'nombres' => $candidato['nombres'],
-                    'apellido_paterno' => $candidato['apellido_paterno'],
-                    'apellido_materno' => $candidato['apellido_materno'] ?? null,
-                    'ci_numero' => $candidato['ci_numero'],
-                    'fecha_nacimiento' => $candidato['fecha_nacimiento'],
-                    'correo' => $candidato['correo'],
-                ]);
-            }
-
             $this->armarEtapas($proceso, $carrera);
 
-            return $usuario;
+            return ['usuario' => $usuario, 'proceso' => $proceso];
         });
+    }
+
+    public function crearProcesoParaContacto(ContactoEmpresa $contacto, Usuario $creador): Proceso
+    {
+        $carrera = Carrera::query()->where('activa', true)->orderBy('id')->firstOrFail();
+        $empresa = $contacto->empresa;
+
+        $proceso = Proceso::query()->create([
+            'codigo' => $this->codigo(),
+            'tipo' => TipoProceso::Empresa,
+            'nombre' => 'Solicitud · '.$empresa->razon_social,
+            'estado' => EstadoProceso::PendientePago,
+            'top_n' => 1,
+            'creado_por' => $creador->id,
+        ]);
+
+        SolicitudEmpresa::query()->create([
+            'proceso_id' => $proceso->id,
+            'tipo_proceso' => TipoProceso::Empresa->value,
+            'contacto_id' => $contacto->id,
+            'cargo' => CompletarDatosSolicitudEmpresa::CARGO_PENDIENTE,
+            'area' => null,
+            'nivel_jerarquico' => 'TECNICO',
+            'vacantes' => 1,
+            'descripcion_funciones' => 'Pendiente de completar tras el pago.',
+            'carrera_id' => $carrera->id,
+            'enviada_en' => now(),
+        ]);
+
+        $this->armarEtapas($proceso, $carrera);
+
+        return $proceso;
     }
 
     /**
@@ -155,21 +157,6 @@ class RegistrarSolicitudEmpresa
             $errores['ci_numero'] = 'Esa cédula ya está registrada.';
         }
 
-        $correos = collect($datos['candidatos'])->pluck('correo')->map(fn ($correo) => mb_strtolower($correo));
-        $cis = collect($datos['candidatos'])->pluck('ci_numero');
-        if ($correos->duplicates()->isNotEmpty()) {
-            $errores['candidatos'] = 'Hay correos repetidos en la lista.';
-        }
-        if ($cis->duplicates()->isNotEmpty()) {
-            $errores['candidatos'] = 'Hay cédulas repetidas en la lista.';
-        }
-        if (Usuario::query()->whereIn('correo', $correos)->exists() || $correos->contains(mb_strtolower($datos['correo_contacto']))) {
-            $errores['candidatos'] = 'Un correo de la lista ya pertenece a otra cuenta.';
-        }
-        if (DB::table('talento.persona')->whereIn('ci_numero', $cis)->exists() || $cis->contains($datos['ci_numero'])) {
-            $errores['candidatos'] = 'Una cédula de la lista ya está registrada.';
-        }
-
         if ($errores !== []) {
             throw ValidationException::withMessages($errores);
         }
@@ -185,6 +172,15 @@ class RegistrarSolicitudEmpresa
         } while (Proceso::query()->where('codigo', $codigo)->exists());
 
         return $codigo;
+    }
+
+    public function rearmarEtapas(Proceso $proceso, Carrera $carrera): void
+    {
+        foreach ($proceso->etapas as $etapa) {
+            $etapa->pruebas()->delete();
+        }
+        $proceso->etapas()->delete();
+        $this->armarEtapas($proceso, $carrera);
     }
 
     private function armarEtapas(Proceso $proceso, Carrera $carrera): void

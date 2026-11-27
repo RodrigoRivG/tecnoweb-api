@@ -15,6 +15,14 @@ Artisan::command('talento:generar-estudiantes-prueba', function () {
     $this->info("¡Estudiantes de prueba generados exitosamente con notas altas hasta la etapa de CV!");
 });
 
+Artisan::command('talento:generar-candidatos-completos', function () {
+    require_once database_path('seeders/CandidatosCompletosSeeder.php');
+    $seeder = new \Database\Seeders\CandidatosCompletosSeeder();
+    $seeder->setCommand($this);
+    $seeder->run();
+    $this->info('¡Egresados con proceso completo generados (completo.*@talento.test / password123)!');
+});
+
 Artisan::command('talento:sembrar-permisos', function () {
     require_once database_path('seeders/PermisoSeeder.php');
     $seeder = new \Database\Seeders\PermisoSeeder();

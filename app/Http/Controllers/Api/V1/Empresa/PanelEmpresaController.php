@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api\V1\Empresa;
 
+use App\Actions\Empresa\CrearSolicitudEmpresa;
+use App\Actions\Empresa\DescartarBorradorEmpresa;
 use App\Actions\Empresa\PresentarSolicitudEmpresa;
 use App\Actions\Informe\ArmarInformePostulacion;
 use App\Http\Controllers\Controller;
@@ -19,6 +21,35 @@ class PanelEmpresaController extends Controller
         return response()->json([
             'data' => $procesos->map(fn (Proceso $proceso) => $presentar->handle($proceso, $proceso->estado->value === 'EN_CURSO'))->values(),
         ]);
+    }
+
+    public function store(Request $request, CrearSolicitudEmpresa $crear): JsonResponse
+    {
+        $proceso = $crear->handle($request->user());
+
+        return response()->json([
+            'data' => [
+                'proceso_id' => $proceso->id,
+                'estado' => $proceso->estado->value,
+            ],
+        ], 201);
+    }
+
+    public function show(Request $request, Proceso $proceso, PresentarSolicitudEmpresa $presentar): JsonResponse
+    {
+        $this->autorizar($request, $proceso);
+
+        return response()->json([
+            'data' => $presentar->handle($proceso, $proceso->estado->value === 'EN_CURSO'),
+        ]);
+    }
+
+    public function destroy(Request $request, Proceso $proceso, DescartarBorradorEmpresa $descartar): JsonResponse
+    {
+        $this->autorizar($request, $proceso);
+        $descartar->handle($proceso);
+
+        return response()->json(['data' => ['ok' => true]]);
     }
 
     public function informe(Request $request, int $postulacionId, ArmarInformePostulacion $armar): JsonResponse
@@ -40,5 +71,15 @@ class PanelEmpresaController extends Controller
             ->whereHas('solicitud.contacto.persona', fn ($persona) => $persona->where('usuario_id', $request->user()->id))
             ->orderByDesc('id')
             ->get();
+    }
+
+    private function autorizar(Request $request, Proceso $proceso): void
+    {
+        $dueno = Proceso::query()
+            ->whereKey($proceso->id)
+            ->where('tipo', 'EMPRESA')
+            ->whereHas('solicitud.contacto.persona', fn ($q) => $q->where('usuario_id', $request->user()->id))
+            ->exists();
+        abort_unless($dueno, 403);
     }
 }

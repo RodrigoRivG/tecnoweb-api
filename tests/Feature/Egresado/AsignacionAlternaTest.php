@@ -77,7 +77,7 @@ class AsignacionAlternaTest extends TestCase
             'nombre' => 'Ingeniería Informática',
         ]);
         $proceso = $this->crearConvocatoria($carrera);
-        $codigos = ['TEST_PURDUE_NO_VERBAL', 'TEST_LABERINTOS_VISOESPACIAL', 'TEST_LECTURA_COMPRENSIVA'];
+        $codigos = ['TEST_CODIFICACION', 'TEST_LABERINTOS_VISOESPACIAL', 'TEST_LECTURA_COMPRENSIVA'];
         $libros = Prueba::query()->whereIn('codigo', $codigos)->get();
         $this->assertCount(3, $libros);
         foreach ($libros as $libro) {

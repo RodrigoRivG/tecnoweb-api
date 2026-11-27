@@ -45,8 +45,12 @@ class BancoPreguntasInteligenciaSeeder extends Seeder
 
         $this->command?->info("Poblando banco de preguntas para la prueba [{$prueba->codigo}] (ID: {$prueba->id})...");
 
+        $this->sincronizarImagenesDesdeEscaneos();
+
         DB::transaction(function () use ($prueba) {
-            // 1. Limpiar preguntas previas de esta prueba (en cascada limpia opciones)
+            $preguntasIds = Pregunta::query()->where('prueba_id', $prueba->id)->pluck('id');
+            DB::table('talento.respuesta_intento')->whereIn('pregunta_id', $preguntasIds)->delete();
+
             Pregunta::query()->where('prueba_id', $prueba->id)->delete();
 
             $basePublicPath = public_path('pruebas/inteligencia');
@@ -58,20 +62,19 @@ class BancoPreguntasInteligenciaSeeder extends Seeder
 
                 $archivoId = null;
                 if (File::exists($rutaFisica)) {
-                    $tamano = File::size($rutaFisica);
-                    $hash = hash_file('sha256', $rutaFisica);
-
                     $archivo = Archivo::query()->updateOrCreate(
                         ['clave_almacenamiento' => $claveAlmacenamiento],
                         [
                             'nombre_original' => $nombreArchivo,
                             'mime_type' => 'image/png',
-                            'tamano_bytes' => $tamano,
-                            'hash_sha256' => $hash,
+                            'tamano_bytes' => File::size($rutaFisica),
+                            'hash_sha256' => hash_file('sha256', $rutaFisica),
                             'subido_por' => 1,
                         ]
                     );
                     $archivoId = $archivo->id;
+                } else {
+                    $this->command?->warn("No se encontró {$rutaFisica}; la pregunta {$nro} se creará sin imagen.");
                 }
 
                 // 2. Crear pregunta
@@ -105,6 +108,29 @@ class BancoPreguntasInteligenciaSeeder extends Seeder
         });
 
         $total = Pregunta::query()->where('prueba_id', $prueba->id)->count();
-        $this->command?->info("✓ Se registraron exitosamente {$total} preguntas con sus 8 alternativas para el Test de Inteligencia.");
+        $this->command?->info("¿Es usted muy hábil?: {$total} matrices cargadas.");
+    }
+
+    private function sincronizarImagenesDesdeEscaneos(): void
+    {
+        $origen = dirname(base_path()) . DIRECTORY_SEPARATOR . 'TIPOS-DE-TEST' . DIRECTORY_SEPARATOR
+            . 'inteligencia' . DIRECTORY_SEPARATOR . '2' . DIRECTORY_SEPARATOR . 'inteligencia_m';
+
+        $destino = public_path('pruebas/inteligencia');
+        File::ensureDirectoryExists($destino);
+
+        for ($n = 1; $n <= 15; $n++) {
+            $nombreOrigen = "pregunta_{$n}.png";
+            $rutaOrigen = $origen . DIRECTORY_SEPARATOR . $nombreOrigen;
+            $rutaDestino = $destino . DIRECTORY_SEPARATOR . $nombreOrigen;
+
+            if (! File::exists($rutaOrigen)) {
+                $this->command?->warn("Escaneo faltante para ítem {$n}: {$rutaOrigen}");
+
+                continue;
+            }
+
+            File::copy($rutaOrigen, $rutaDestino);
+        }
     }
 }

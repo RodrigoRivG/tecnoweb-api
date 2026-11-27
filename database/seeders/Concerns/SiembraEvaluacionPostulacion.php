@@ -1,0 +1,158 @@
+<?php
+
+namespace Database\Seeders\Concerns;
+
+use App\Actions\Evaluacion\AsignarInstrumentosPostulacion;
+use App\Actions\Evaluacion\CalificarEntrevista;
+use App\Actions\Evaluacion\FinalizarIntentoPrueba;
+use App\Actions\Evaluacion\GuardarRespuestaIntento;
+use App\Actions\Evaluacion\IniciarIntentoPrueba;
+use App\Enums\EstadoEtapa;
+use App\Models\AsignacionPrueba;
+use App\Models\IntentoPrueba;
+use App\Models\Postulacion;
+use App\Models\Pregunta;
+use App\Models\ProcesoPrueba;
+use App\Models\RespuestaIntento;
+use App\Models\ResultadoPrueba;
+use App\Models\RubricaCriterio;
+use App\Models\Usuario;
+use Illuminate\Support\Collection;
+
+trait SiembraEvaluacionPostulacion
+{
+    protected function limpiarIntento(int $postulacionId, int $procesoPruebaId): void
+    {
+        $intentoPrevio = IntentoPrueba::where('postulacion_id', $postulacionId)
+            ->where('proceso_prueba_id', $procesoPruebaId)
+            ->first();
+
+        if (! $intentoPrevio) {
+            return;
+        }
+
+        RespuestaIntento::where('intento_id', $intentoPrevio->id)->delete();
+        ResultadoPrueba::where('intento_id', $intentoPrevio->id)->delete();
+        $intentoPrevio->delete();
+    }
+
+    /**
+     * @param  Collection<int, \App\Models\OpcionPregunta>  $opciones
+     */
+    protected function opcionPorCalidad(Collection $opciones, float $calidad): ?\App\Models\OpcionPregunta
+    {
+        $ordenadas = $opciones->sortByDesc('puntaje')->values();
+        if ($ordenadas->isEmpty()) {
+            return null;
+        }
+
+        $calidad = max(0.0, min(1.0, $calidad));
+        $indice = match (true) {
+            $calidad >= 0.92 => 0,
+            $calidad >= 0.78 => min(1, $ordenadas->count() - 1),
+            $calidad >= 0.62 => min(2, $ordenadas->count() - 1),
+            default => $ordenadas->count() - 1,
+        };
+
+        return $ordenadas[$indice];
+    }
+
+    protected function completarEvaluacionPsicologica(
+        Usuario $candidato,
+        Postulacion $postulacion,
+        float $calidadPsico = 1.0,
+    ): void {
+        $iniciar = app(IniciarIntentoPrueba::class);
+        $guardar = app(GuardarRespuestaIntento::class);
+        $finalizar = app(FinalizarIntentoPrueba::class);
+        $asignar = app(AsignarInstrumentosPostulacion::class);
+
+        $etapaPsico = $postulacion->etapas()
+            ->whereHas('procesoEtapa.etapa', fn ($q) => $q->where('codigo', 'EVALUACION_PSICOLOGICA'))
+            ->firstOrFail();
+
+        $asignar->handle($postulacion->refresh());
+
+        $idsEtapa = ProcesoPrueba::query()
+            ->where('proceso_etapa_id', $etapaPsico->proceso_etapa_id)
+            ->pluck('id');
+
+        $pruebas = AsignacionPrueba::query()
+            ->with('procesoPrueba.prueba')
+            ->where('postulacion_id', $postulacion->id)
+            ->whereIn('proceso_prueba_id', $idsEtapa)
+            ->get()
+            ->pluck('procesoPrueba')
+            ->filter()
+            ->sortBy('orden')
+            ->values();
+
+        $etapaPsico->update(['estado' => EstadoEtapa::Pendiente, 'iniciada_en' => now(), 'finalizada_en' => null]);
+
+        foreach ($pruebas as $pp) {
+            $this->limpiarIntento($postulacion->id, $pp->id);
+
+            $postulacion->etapas()
+                ->where('proceso_etapa_id', $pp->proceso_etapa_id)
+                ->update([
+                    'estado' => EstadoEtapa::Pendiente,
+                    'iniciada_en' => now(),
+                    'finalizada_en' => null,
+                ]);
+
+            $intento = $iniciar->handle($candidato, $postulacion, $pp);
+            $intento->load('respuestas');
+
+            $preguntas = Pregunta::query()
+                ->whereIn('id', $intento->respuestas->pluck('pregunta_id'))
+                ->with('opciones')
+                ->orderBy('orden')
+                ->get();
+
+            if ($preguntas->isEmpty()) {
+                $preguntas = Pregunta::where('prueba_id', $pp->prueba_id)->with('opciones')->orderBy('orden')->get();
+            }
+
+            foreach ($preguntas as $p) {
+                $opcion = $this->opcionPorCalidad($p->opciones, $calidadPsico);
+                if ($opcion) {
+                    $guardar->handle($candidato, $intento, $p->id, $opcion->id);
+                }
+            }
+
+            $finalizar->handle($candidato, $intento);
+        }
+
+        $etapaPsico->refresh();
+        $etapaPsico->update(['estado' => EstadoEtapa::Aprobada, 'finalizada_en' => now()]);
+    }
+
+    protected function completarEntrevista(
+        Usuario $admin,
+        Postulacion $postulacion,
+        float $notaCriterio = 9.5,
+        ?string $observaciones = null,
+    ): void {
+        $etapaEntrevista = $postulacion->etapas()
+            ->whereHas('procesoEtapa.etapa', fn ($q) => $q->where('codigo', 'ENTREVISTA'))
+            ->firstOrFail();
+
+        $etapaEntrevista->update(['estado' => EstadoEtapa::Pendiente, 'iniciada_en' => now(), 'finalizada_en' => null]);
+
+        $ppEntrevista = ProcesoPrueba::where('proceso_etapa_id', $etapaEntrevista->proceso_etapa_id)->firstOrFail();
+        $criterios = RubricaCriterio::where('prueba_id', $ppEntrevista->prueba_id)->get();
+        $califs = [];
+        foreach ($criterios as $c) {
+            $califs[] = [
+                'criterio_id' => $c->id,
+                'puntaje' => $notaCriterio,
+                'comentario' => "Evaluación simulada en {$c->nombre}.",
+            ];
+        }
+
+        app(CalificarEntrevista::class)->handle($admin, $postulacion, [
+            'calificaciones' => $califs,
+            'observaciones' => $observaciones ?? 'Entrevista de empresa simulada para datos de prueba.',
+        ]);
+    }
+}

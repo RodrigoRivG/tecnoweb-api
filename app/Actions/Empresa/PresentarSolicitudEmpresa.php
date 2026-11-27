@@ -2,6 +2,7 @@
 
 namespace App\Actions\Empresa;
 
+use App\Actions\Empresa\CompletarDatosSolicitudEmpresa;
 use App\Enums\EstadoEtapa;
 use App\Enums\EstadoPostulacion;
 use App\Models\Postulacion;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 class PresentarSolicitudEmpresa
 {
+    public function __construct(private ConfirmarPagoEmpresa $pagos) {}
     /**
      * @return array<string, mixed>
      */
@@ -66,6 +68,7 @@ class PresentarSolicitudEmpresa
             'codigo' => $proceso->codigo,
             'nombre' => $proceso->nombre,
             'estado' => $proceso->estado->value,
+            'datos_puesto_pendientes' => CompletarDatosSolicitudEmpresa::datosPendientes($solicitud->cargo),
             'empresa' => [
                 'razon_social' => $empresa->razon_social,
                 'nit' => $empresa->nit,
@@ -85,11 +88,14 @@ class PresentarSolicitudEmpresa
             ],
             'candidatos' => $solicitud->candidatos->map(fn ($candidato): array => [
                 'nombres' => $candidato->nombres,
+                'apellido_paterno' => $candidato->apellido_paterno,
                 'apellidos' => trim($candidato->apellido_paterno.' '.$candidato->apellido_materno),
                 'ci' => $candidato->ci_numero,
                 'correo' => $candidato->correo,
+                'fecha_nacimiento' => $candidato->fecha_nacimiento?->format('Y-m-d'),
             ])->all(),
             'accesos' => $accesos,
+            'candidatos_pendientes_pago' => $this->pagos->candidatosPendientesDeActivacion($proceso),
         ];
     }
 

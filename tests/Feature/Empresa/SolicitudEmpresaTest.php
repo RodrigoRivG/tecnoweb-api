@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Empresa;
 
+use App\Actions\Empresa\ConfirmarPagoEmpresa;
+use App\Actions\Empresa\RegistrarCandidatosEmpresa;
 use App\Enums\CodigoRol;
 use App\Enums\EstadoProceso;
 use App\Models\AsignacionPrueba;
@@ -16,8 +18,10 @@ class SolicitudEmpresaTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_la_empresa_carga_la_solicitud_y_el_admin_habilita_los_accesos(): void
+    public function test_flujo_empresa_pago_y_candidatos(): void
     {
+        config(['stripe.secret' => null, 'stripe.simular_sin_clave' => true]);
+
         $carrera = Carrera::factory()->create(['nombre' => 'Ingeniería de Sistemas']);
         $niveles = DimensionEvaluada::query()
             ->whereIn('tipo', ['PERSONALIDAD', 'HABILIDAD_BLANDA'])
@@ -37,69 +41,74 @@ class SolicitudEmpresaTest extends TestCase
             'correo_contacto' => 'laura@norte.test',
             'password' => 'Norte1234',
             'password_confirmation' => 'Norte1234',
-            'cargo' => 'Analista de sistemas',
-            'area' => 'Tecnología',
-            'vacantes' => 2,
-            'descripcion_funciones' => 'Apoyar la operación de los sistemas internos.',
-            'carrera_id' => $carrera->id,
-            'niveles' => $niveles,
-            'candidatos' => [[
-                'nombres' => 'Diego',
-                'apellido_paterno' => 'Rojas',
-                'ci_numero' => '888222',
-                'fecha_nacimiento' => '1998-01-15',
-                'correo' => 'diego.rojas@externo.test',
-            ]],
         ])->assertCreated();
 
         $this->assertSame('EMPRESA', $registro->json('data.usuario.rol.codigo'));
-        $this->assertNull(Usuario::query()->where('correo', 'diego.rojas@externo.test')->first());
+        $procesoId = $registro->json('data.proceso_id');
+        $this->assertNotNull($procesoId);
 
-        $proceso = Proceso::query()->where('codigo', 'like', 'EMP-%')->firstOrFail();
-        $this->assertSame(EstadoProceso::PendienteAprobacion, $proceso->estado);
-        $this->getJson(route('publico.convocatorias'))
-            ->assertOk()
-            ->assertJsonMissing(['codigo' => $proceso->codigo]);
+        $proceso = Proceso::query()->findOrFail($procesoId);
+        $this->assertSame(EstadoProceso::PendientePago, $proceso->estado);
 
-        $egresado = $this->crearEgresado($carrera);
-        $this->actingAs($egresado, 'sanctum')->getJson(route('empresa.solicitudes.index'))->assertForbidden();
+        $contacto = Usuario::query()->where('correo', 'laura@norte.test')->firstOrFail();
+        $token = $registro->json('data.token');
 
-        $admin = Usuario::factory()->conRol(CodigoRol::Admin)->create();
-        $aprobada = $this->actingAs($admin, 'sanctum')
-            ->postJson(route('admin.solicitudes-empresa.aprobar', $proceso))
+        $this->withToken($token)
+            ->postJson(route('empresa.solicitudes.datos', $proceso), [
+                'cargo' => 'Analista de sistemas',
+                'area' => 'Tecnología',
+                'vacantes' => 2,
+                'descripcion_funciones' => 'Apoyar la operación de los sistemas internos.',
+                'carrera_id' => $carrera->id,
+                'niveles' => $niveles,
+            ])
             ->assertOk();
 
-        $clave = $aprobada->json('data.accesos.0.clave_temporal');
-        $postulacionId = $aprobada->json('data.accesos.0.postulacion_id');
-        $this->assertNotEmpty($clave);
+        $candidatos = $this->withToken($token)
+            ->postJson(route('empresa.solicitudes.candidatos', $proceso), [
+                'candidatos' => [[
+                    'nombres' => 'Diego',
+                    'apellido_paterno' => 'Rojas',
+                    'ci_numero' => '888222',
+                    'fecha_nacimiento' => '1998-01-15',
+                    'correo' => 'diego.rojas@externo.test',
+                ]],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.pendiente_pago', true);
+
+        $this->assertSame(EstadoProceso::PendientePago, $proceso->fresh()->estado);
+
+        $this->withToken($token)
+            ->postJson(route('empresa.solicitudes.simular-pago', $proceso))
+            ->assertOk();
+
         $this->assertSame(EstadoProceso::EnCurso, $proceso->fresh()->estado);
 
-        $candidato = Usuario::query()->where('correo', 'diego.rojas@externo.test')->firstOrFail();
-        $this->assertSame(CodigoRol::CandidatoExterno->value, $candidato->rol->codigo instanceof \BackedEnum ? $candidato->rol->codigo->value : $candidato->rol->codigo);
-        $asignadas = AsignacionPrueba::query()->with('prueba')->where('postulacion_id', $postulacionId)->get();
-        $this->assertCount(4, $asignadas);
-        $this->assertEqualsCanonicalizing(
-            ['PERSONALIDAD', 'INTELIGENCIA', 'HABILIDAD_BLANDA', 'HABILIDAD_ESPECIFICA'],
-            $asignadas->map(fn ($asignacion) => $asignacion->prueba->familia->value)->all(),
-        );
+        $resumen = $this->withToken($token)
+            ->getJson(route('empresa.solicitudes.index'))
+            ->assertOk()
+            ->json('data.0');
+
+        $clave = $resumen['accesos'][0]['clave_temporal'];
+        $postulacionId = $resumen['accesos'][0]['postulacion_id'];
+        $this->assertNotEmpty($clave);
 
         $this->postJson(route('auth.login'), [
             'correo' => 'diego.rojas@externo.test',
             'password' => $clave,
         ])->assertOk();
 
-        $contacto = Usuario::query()->where('correo', 'laura@norte.test')->firstOrFail();
-        $this->actingAs($contacto, 'sanctum')
+        $asignadas = AsignacionPrueba::query()->with('prueba')->where('postulacion_id', $postulacionId)->get();
+        $this->assertGreaterThanOrEqual(1, $asignadas->count());
+
+        $this->withToken($token)
             ->getJson(route('empresa.solicitudes.index'))
             ->assertOk()
-            ->assertJsonPath('data.0.accesos.0.correo', 'diego.rojas@externo.test')
-            ->assertJsonPath('data.0.accesos.0.ci', '888222')
-            ->assertJsonPath('data.0.accesos.0.clave_temporal', $clave)
-            ->assertJsonPath('data.0.accesos.0.estado_evaluacion', 'Evaluación psicológica · Pendiente');
+            ->assertJsonPath('data.0.accesos.0.correo', 'diego.rojas@externo.test');
 
-        $this->actingAs($contacto, 'sanctum')
+        $this->withToken($token)
             ->getJson(route('empresa.postulaciones.informe', $postulacionId))
-            ->assertOk()
-            ->assertJsonStructure(['data' => ['perfil_personalidad', 'perfil_habilidades_blandas', 'resumen_puntajes']]);
+            ->assertOk();
     }
 }

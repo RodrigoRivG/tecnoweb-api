@@ -21,11 +21,14 @@ class DatabaseSeeder extends Seeder
         $this->call(BancoPreguntasInteligenciaSeeder::class);
         $this->call(BancoPreguntasEmocionalSeeder::class);
         $this->call(BancoPreguntasLecturaSeeder::class);
+        $this->call(BancoPreguntasLecturaTest1Seeder::class);
         $this->call(BancoPreguntasPurdueSeeder::class);
+        $this->call(BancoPreguntasPurdueFormaBSeeder::class);
         $this->call(BancoPreguntasHabilidadesBlandasSeeder::class);
         $this->call(BancoPreguntas16PfFormaBSeeder::class);
         $this->call(BancoPreguntasDominosSeeder::class);
         $this->call(BancoPreguntasRavenSeeder::class);
+        $this->call(BancoPreguntasCodificacionLetrasSimbolosSeeder::class);
         $this->call(BancoPreguntasEspecificasSeeder::class);
         $this->call(AlinearBancoEvaluacionSeeder::class);
 

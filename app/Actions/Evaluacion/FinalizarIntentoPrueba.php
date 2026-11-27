@@ -2,11 +2,8 @@
 
 namespace App\Actions\Evaluacion;
 
-use App\Enums\EstadoEtapa;
 use App\Enums\EstadoIntento;
 use App\Enums\MotivoNoAprobacion;
-use App\Enums\TipoPrueba;
-use App\Models\AsignacionPrueba;
 use App\Models\IntentoPrueba;
 use App\Models\Pregunta;
 use App\Models\ResultadoDimension;
@@ -149,63 +146,7 @@ class FinalizarIntentoPrueba
                 );
             }
 
-            // 6. Si fue aprobada, verificar si TODAS las pruebas obligatorias de la etapa están aprobadas
-            if ($aprobada) {
-                $procesoEtapa = $procesoPrueba->procesoEtapa;
-                $obligatorias = $procesoEtapa->pruebas()->with('prueba')->where('obligatoria', true)->get();
-                $deFamilia = $obligatorias->filter(
-                    fn ($cupo): bool => $cupo->prueba?->tipo === TipoPrueba::Test && $cupo->prueba->familia !== null,
-                );
-                $asignadas = AsignacionPrueba::query()
-                    ->where('postulacion_id', $postulacion->id)
-                    ->whereIn('proceso_prueba_id', $deFamilia->pluck('id'))
-                    ->pluck('proceso_prueba_id');
-                $requeridas = $obligatorias
-                    ->reject(fn ($cupo): bool => $deFamilia->contains('id', $cupo->id))
-                    ->pluck('id')
-                    ->merge($asignadas)
-                    ->unique()
-                    ->values();
-
-                $aprobadasCount = ResultadoPrueba::where('postulacion_id', $postulacion->id)
-                    ->whereIn('proceso_prueba_id', $requeridas)
-                    ->where('aprobada', true)
-                    ->count();
-
-                $todasAprobadas = $requeridas->isNotEmpty()
-                    && ($deFamilia->isEmpty() || $asignadas->isNotEmpty())
-                    && $aprobadasCount >= $requeridas->count();
-
-                if ($todasAprobadas) {
-                    $etapaActual = $postulacion->etapas()
-                        ->where('proceso_etapa_id', $procesoEtapa->id)
-                        ->first();
-
-                    if ($etapaActual) {
-                        $etapaActual->update([
-                            'estado' => EstadoEtapa::Aprobada,
-                            'finalizada_en' => now(),
-                        ]);
-
-                        // Desbloquear la siguiente etapa activa
-                        $ordenActual = $etapaActual->procesoEtapa->orden;
-
-                        $siguienteEtapa = $postulacion->etapas()
-                            ->whereHas('procesoEtapa', fn ($q) => $q->where('orden', '>', $ordenActual)->where('activa', true))
-                            ->join('talento.proceso_etapa', 'talento.postulacion_etapa.proceso_etapa_id', '=', 'talento.proceso_etapa.id')
-                            ->orderBy('talento.proceso_etapa.orden')
-                            ->select('talento.postulacion_etapa.*')
-                            ->first();
-
-                        if ($siguienteEtapa && $siguienteEtapa->estado === EstadoEtapa::Bloqueada) {
-                            $siguienteEtapa->update([
-                                'estado' => EstadoEtapa::Pendiente,
-                                'iniciada_en' => now(),
-                            ]);
-                        }
-                    }
-                }
-            }
+            app(AvanzarEtapaTrasResultados::class)->handle($postulacion, $procesoPrueba->procesoEtapa);
 
             app(AsignarInstrumentosPostulacion::class)->handle($postulacion->refresh());
 

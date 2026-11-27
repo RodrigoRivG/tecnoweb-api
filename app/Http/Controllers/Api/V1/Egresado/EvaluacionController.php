@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Egresado;
 
 use App\Actions\Evaluacion\AsignarInstrumentosPostulacion;
+use App\Actions\Evaluacion\AvanzarEtapaTrasResultados;
 use App\Actions\Evaluacion\FinalizarIntentoPrueba;
 use App\Actions\Evaluacion\GuardarRespuestaIntento;
 use App\Actions\Evaluacion\IniciarIntentoPrueba;
@@ -163,8 +164,11 @@ class EvaluacionController extends Controller
     private function diagnosticoInteligencia(float $puntajeBruto, float $puntajeMaximo): array
     {
         $aciertos = (int) round($puntajeBruto);
-        $aciertosClamped = max(0, min(15, $aciertos));
-        $baremo = self::BAREMOS_IQ[$aciertosClamped] ?? self::BAREMOS_IQ[0];
+        $total = (int) max(1, $puntajeMaximo);
+        $indiceBaremo = $total > 15
+            ? max(0, min(15, (int) round($aciertos / $total * 15)))
+            : max(0, min(15, $aciertos));
+        $baremo = self::BAREMOS_IQ[$indiceBaremo] ?? self::BAREMOS_IQ[0];
 
         return [
             'aciertos' => $aciertos,
@@ -396,6 +400,7 @@ class EvaluacionController extends Controller
             ->findOrFail($postulacionId);
 
         $asignar->handle($postulacion);
+        app(AvanzarEtapaTrasResultados::class)->sincronizarPostulacion($postulacion);
         $postulacion->unsetRelation('etapas');
         $postulacion->load(['etapas.procesoEtapa.etapa', 'resultados']);
 
@@ -593,9 +598,9 @@ class EvaluacionController extends Controller
                 if ($intentoFinalizado) {
                     $diagnosticoEmocional = $this->diagnosticoInteligenciaEmocional($intentoFinalizado, $postulacion);
                 }
-            } elseif ($prueba->codigo === 'TEST_LECTURA_COMPRENSIVA') {
+            } elseif (in_array($prueba->codigo, ['TEST_LECTURA_COMPRENSIVA', 'TEST_LECTURA_COMPRENSIVA_1'], true)) {
                 $diagnosticoLectura = $this->diagnosticoLecturaComprensiva((float) $ultimoResultado->puntaje_bruto, (float) $ultimoResultado->puntaje_maximo);
-            } elseif ($prueba->codigo === 'TEST_PURDUE_NO_VERBAL') {
+            } elseif (in_array($prueba->codigo, ['TEST_PURDUE_NO_VERBAL', 'TEST_PURDUE_NO_VERBAL_FORMA_B'], true)) {
                 $diagnosticoPurdue = $this->diagnosticoPurdue((float) $ultimoResultado->puntaje_bruto, (float) $ultimoResultado->puntaje_maximo);
             } elseif ($prueba->codigo === 'TEST_HABILIDADES_BLANDAS') {
                 $intentoFinalizado = IntentoPrueba::find($ultimoResultado->intento_id);
@@ -883,9 +888,9 @@ class EvaluacionController extends Controller
             $diagnosticoInteligencia = $this->diagnosticoInteligencia((float) $resultado->puntaje_bruto, (float) $resultado->puntaje_maximo);
         } elseif (in_array($codigoPrueba, ['TMMS_24', 'TEST_INTELIGENCIA_EMOCIONAL'], true)) {
             $diagnosticoEmocional = $this->diagnosticoInteligenciaEmocional($intento, $intento->postulacion);
-        } elseif ($codigoPrueba === 'TEST_LECTURA_COMPRENSIVA') {
+        } elseif (in_array($codigoPrueba, ['TEST_LECTURA_COMPRENSIVA', 'TEST_LECTURA_COMPRENSIVA_1'], true)) {
             $diagnosticoLectura = $this->diagnosticoLecturaComprensiva((float) $resultado->puntaje_bruto, (float) $resultado->puntaje_maximo);
-        } elseif ($codigoPrueba === 'TEST_PURDUE_NO_VERBAL') {
+        } elseif (in_array($codigoPrueba, ['TEST_PURDUE_NO_VERBAL', 'TEST_PURDUE_NO_VERBAL_FORMA_B'], true)) {
             $diagnosticoPurdue = $this->diagnosticoPurdue((float) $resultado->puntaje_bruto, (float) $resultado->puntaje_maximo);
         } elseif ($codigoPrueba === 'TEST_HABILIDADES_BLANDAS') {
             $diagnosticoHabilidadesBlandas = $this->diagnosticoHabilidadesBlandas($intento);

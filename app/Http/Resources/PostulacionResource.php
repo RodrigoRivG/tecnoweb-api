@@ -30,6 +30,12 @@ class PostulacionResource extends JsonResource
         'documentos.archivo',
     ];
 
+    /** Listado del egresado: incluye etapas para el resumen en Mi cuenta. */
+    public const RELACIONES_LISTADO = [
+        'proceso.convocatoria.carrera.facultad',
+        'etapas.procesoEtapa.etapa',
+    ];
+
     /**
      * Transform the resource into an array.
      *

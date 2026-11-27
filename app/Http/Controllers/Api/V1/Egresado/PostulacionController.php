@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Egresado;
 
 use App\Actions\Egresado\PostularAConvocatoria;
+use App\Actions\Evaluacion\AvanzarEtapaTrasResultados;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Egresado\PostularRequest;
 use App\Http\Resources\ConvocatoriaResource;
@@ -44,7 +45,7 @@ class PostulacionController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $postulaciones = $request->user()->persona->postulaciones()
-            ->with('proceso.convocatoria.carrera.facultad')
+            ->with(PostulacionResource::RELACIONES_LISTADO)
             ->latest('id')
             ->get();
 

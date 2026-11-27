@@ -53,26 +53,17 @@ class RegistroSolicitudController extends Controller
             'correo_contacto' => ['required', 'email', 'max:190'],
             'password' => ['required', 'string', 'confirmed', Password::min(8)->letters()->numbers()],
             'cargo_contacto' => ['nullable', 'string', 'max:100'],
-            'cargo' => ['required', 'string', 'max:150'],
-            'area' => ['nullable', 'string', 'max:100'],
-            'vacantes' => ['required', 'integer', 'min:1', 'max:50'],
-            'descripcion_funciones' => ['required', 'string', 'max:4000'],
-            'carrera_id' => ['required', 'integer', Rule::exists(Carrera::class, 'id')],
-            'nivel_jerarquico' => ['nullable', Rule::in(['OPERATIVO', 'TECNICO', 'JEFATURA', 'GERENCIA', 'DIRECCION'])],
-            'niveles' => ['required', 'array', 'min:1'],
-            'niveles.*.dimension_id' => ['required', 'integer'],
-            'niveles.*.valor_ideal' => ['required', 'integer', 'between:1,10'],
-            'candidatos' => ['required', 'array', 'min:1', 'max:50'],
-            'candidatos.*.nombres' => ['required', 'string', 'max:100'],
-            'candidatos.*.apellido_paterno' => ['required', 'string', 'max:60'],
-            'candidatos.*.apellido_materno' => ['nullable', 'string', 'max:60'],
-            'candidatos.*.ci_numero' => ['required', 'string', 'max:15'],
-            'candidatos.*.fecha_nacimiento' => ['required', 'date', 'before:today'],
-            'candidatos.*.correo' => ['required', 'email', 'max:190'],
         ]);
 
-        $usuario = $registrar->handle($datos, $request->ip());
+        $resultado = $registrar->handle($datos, $request->ip());
+        $usuario = $resultado['usuario'];
+        $proceso = $resultado['proceso'];
 
-        return AutenticacionController::respuestaConToken($usuario, null, 201);
+        $respuesta = AutenticacionController::respuestaConToken($usuario, null, 201);
+        $carga = $respuesta->getData(true);
+        $carga['data']['proceso_id'] = $proceso->id;
+        $carga['data']['proceso_estado'] = $proceso->estado->value;
+
+        return response()->json($carga, 201);
     }
 }

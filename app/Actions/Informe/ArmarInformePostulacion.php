@@ -16,12 +16,12 @@ use Illuminate\Support\Facades\DB;
 class ArmarInformePostulacion
 {
     /** @var list<string> */
-    private const PRUEBAS_INTELIGENCIA = ['TEST_INTELIGENCIA', 'DOMINOS_D48', 'ES_USTED_MUY_HABIL', 'RAVEN'];
+    private const PRUEBAS_INTELIGENCIA = ['TEST_INTELIGENCIA', 'DOMINOS_D48', 'ES_USTED_MUY_HABIL', 'RAVEN', 'TEST_PURDUE_NO_VERBAL', 'TEST_PURDUE_NO_VERBAL_FORMA_B'];
 
     /** @var list<string> */
     private const PRUEBAS_ESPECIFICAS = [
         'TEST_LECTURA_COMPRENSIVA',
-        'TEST_PURDUE_NO_VERBAL',
+        'TEST_LECTURA_COMPRENSIVA_1',
         'TEST_APTITUD_MECANICA',
         'TEST_CODIFICACION',
         'TEST_LABERINTOS_VISOESPACIAL',

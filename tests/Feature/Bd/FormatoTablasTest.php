@@ -178,7 +178,7 @@ class FormatoTablasTest extends TestCase
         $despues = DB::table('rol')->count() + DB::table('etapa')->count() + DB::table('dimension_evaluada')->count()
             + DB::table('prueba')->count() + DB::table('rubrica_criterio')->count() + DB::table('tipo_documento')->count()
             + DB::table('parametro_sistema')->count();
-        $this->assertSame(5 + 10 + 24 + 15 + 8 + 4 + 3, $antes);
+        $this->assertSame(5 + 10 + 24 + 17 + 8 + 4 + 3, $antes);
         $this->assertSame($antes, $despues);
     }
 }

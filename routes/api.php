@@ -12,7 +12,10 @@ use App\Http\Controllers\Api\V1\AutenticacionController;
 use App\Http\Controllers\Api\V1\Egresado\DocumentoController;
 use App\Http\Controllers\Api\V1\Egresado\EvaluacionController;
 use App\Http\Controllers\Api\V1\Egresado\PostulacionController;
+use App\Http\Controllers\Api\V1\Empresa\CandidatosEmpresaController;
+use App\Http\Controllers\Api\V1\Empresa\CompletarDatosSolicitudController;
 use App\Http\Controllers\Api\V1\Empresa\PanelEmpresaController;
+use App\Http\Controllers\Api\V1\Empresa\PagoEmpresaController;
 use App\Http\Controllers\Api\V1\Empresa\RegistroSolicitudController;
 use App\Http\Controllers\Api\V1\Evaluador\InformePostulacionController;
 use App\Http\Controllers\Api\V1\Evaluador\PostulacionEvaluadorController;
@@ -38,6 +41,7 @@ Route::prefix('v1')->group(function () {
     Route::post('registro/egresado', RegistroEgresadoController::class)->middleware('throttle:registro')->name('registro.egresado');
     Route::get('empresa/catalogo-solicitud', [RegistroSolicitudController::class, 'catalogo'])->name('empresa.catalogo');
     Route::post('empresa/registro-solicitud', [RegistroSolicitudController::class, 'store'])->middleware('throttle:registro')->name('empresa.registro');
+    Route::post('stripe/webhook', [PagoEmpresaController::class, 'webhook'])->name('stripe.webhook');
 
     Route::middleware(['auth:sanctum', 'throttle:autenticado'])->group(function () {
         Route::post('auth/logout', [AutenticacionController::class, 'logout'])->name('auth.logout');
@@ -210,6 +214,14 @@ Route::prefix('v1')->group(function () {
 
         Route::prefix('empresa')->middleware('rol:EMPRESA')->name('empresa.')->group(function () {
             Route::get('solicitudes', [PanelEmpresaController::class, 'index'])->name('solicitudes.index');
+            Route::post('solicitudes', [PanelEmpresaController::class, 'store'])->name('solicitudes.store');
+            Route::get('solicitudes/{proceso}', [PanelEmpresaController::class, 'show'])->whereNumber('proceso')->name('solicitudes.show');
+            Route::delete('solicitudes/{proceso}', [PanelEmpresaController::class, 'destroy'])->whereNumber('proceso')->name('solicitudes.destroy');
+            Route::post('solicitudes/{proceso}/checkout', [PagoEmpresaController::class, 'checkout'])->whereNumber('proceso')->name('solicitudes.checkout');
+            Route::post('solicitudes/{proceso}/confirmar-checkout', [PagoEmpresaController::class, 'confirmarCheckout'])->whereNumber('proceso')->name('solicitudes.confirmar-checkout');
+            Route::post('solicitudes/{proceso}/simular-pago', [PagoEmpresaController::class, 'simular'])->whereNumber('proceso')->name('solicitudes.simular-pago');
+            Route::post('solicitudes/{proceso}/datos-solicitud', [CompletarDatosSolicitudController::class, 'store'])->whereNumber('proceso')->name('solicitudes.datos');
+            Route::post('solicitudes/{proceso}/candidatos', [CandidatosEmpresaController::class, 'store'])->whereNumber('proceso')->name('solicitudes.candidatos');
             Route::get('postulaciones/{postulacion}/informe', [PanelEmpresaController::class, 'informe'])
                 ->whereNumber('postulacion')
                 ->name('postulaciones.informe');

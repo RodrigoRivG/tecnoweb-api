@@ -68,19 +68,19 @@ class DocumentoTest extends TestCase
         $this->assertSame('cv-v2.pdf', $vigente->archivo->nombre_original);
     }
 
-    public function test_completar_los_obligatorios_pasa_requisitos_a_revision(): void
+    public function test_completar_los_obligatorios_aprueba_requisitos_automaticamente(): void
     {
         foreach (ConvocatoriaTalentoFactory::REQUISITOS_FLUJO_A as $tipo) {
-            $this->assertSame(EstadoEtapa::Pendiente, $this->etapaRequisitos()->estado);
+            $this->assertSame(EstadoEtapa::Pendiente, $this->etapaRequisitos()->fresh()->estado);
 
             $this->subir($tipo, UploadedFile::fake()->image("{$tipo}.jpg"))->assertCreated();
         }
 
-        $this->assertSame(EstadoEtapa::EnRevision, $this->etapaRequisitos()->estado);
+        $this->assertSame(EstadoEtapa::Aprobada, $this->etapaRequisitos()->fresh()->estado);
         $this->assertDatabaseHas('historial_postulacion_etapa', [
             'postulacion_etapa_id' => $this->etapaRequisitos()->id,
             'estado_anterior' => 'PENDIENTE',
-            'estado_nuevo' => 'EN_REVISION',
+            'estado_nuevo' => 'APROBADA',
             'usuario_id' => $this->usuario->id,
         ]);
         $this->actingAs($this->usuario, 'sanctum')

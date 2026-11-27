@@ -59,9 +59,19 @@ class FacultadController extends Controller
         return new FacultadResource($registro->loadCount('carreras'));
     }
 
-    public function destroy(int $facultad): Response
+    public function destroy(int $facultad): Response|JsonResponse
     {
-        $registro = Facultad::query()->findOrFail($facultad);
+        $registro = Facultad::query()->withCount('carreras')->findOrFail($facultad);
+
+        if ($registro->carreras_count > 0) {
+            $mensaje = __('bd.generico.en_uso');
+
+            return response()->json([
+                'message' => $mensaje,
+                'errors' => ['general' => [$mensaje]],
+            ], Response::HTTP_CONFLICT);
+        }
+
         $registro->delete();
 
         return response()->noContent();

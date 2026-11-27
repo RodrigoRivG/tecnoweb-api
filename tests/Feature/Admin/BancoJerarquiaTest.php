@@ -27,7 +27,14 @@ class BancoJerarquiaTest extends TestCase
         $this->assertNull(Prueba::query()->where('codigo', 'TEST_APTITUD_NUMERICA')->first());
         $this->assertNull(Prueba::query()->where('codigo', '16PF_FORMA_A')->value('limite_preguntas'));
 
-        foreach (['16PF_FORMA_A', '16PF_FORMA_B', 'ES_USTED_MUY_HABIL', 'DOMINOS_D48', 'RAVEN', 'TMMS_24', 'TEST_HABILIDADES_BLANDAS', 'TEST_APTITUD_MECANICA', 'TEST_CODIFICACION', 'TEST_LABERINTOS_VISOESPACIAL'] as $codigo) {
+        foreach (['TEST_PURDUE_NO_VERBAL', 'TEST_PURDUE_NO_VERBAL_FORMA_B'] as $codigoPurdue) {
+            $this->assertSame(
+                FamiliaPrueba::Inteligencia,
+                Prueba::query()->where('codigo', $codigoPurdue)->firstOrFail()->familia,
+            );
+        }
+
+        foreach (['16PF_FORMA_A', '16PF_FORMA_B', 'ES_USTED_MUY_HABIL', 'DOMINOS_D48', 'RAVEN', 'TEST_PURDUE_NO_VERBAL', 'TEST_PURDUE_NO_VERBAL_FORMA_B', 'TMMS_24', 'TEST_HABILIDADES_BLANDAS', 'TEST_APTITUD_MECANICA', 'TEST_CODIFICACION', 'TEST_LABERINTOS_VISOESPACIAL'] as $codigo) {
             $this->assertNotNull(Prueba::query()->where('codigo', $codigo)->first(), $codigo);
         }
 
@@ -80,7 +87,7 @@ class BancoJerarquiaTest extends TestCase
 
         $vinculos = $carrera->pruebas()->orderBy('codigo')->pluck('codigo')->all();
         $this->assertSame(
-            ['TEST_LABERINTOS_VISOESPACIAL', 'TEST_LECTURA_COMPRENSIVA', 'TEST_PURDUE_NO_VERBAL'],
+            ['TEST_CODIFICACION', 'TEST_LABERINTOS_VISOESPACIAL', 'TEST_LECTURA_COMPRENSIVA'],
             $vinculos,
         );
 

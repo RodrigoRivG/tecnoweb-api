@@ -93,44 +93,6 @@ class BancoPreguntasEspecificasSeeder extends Seeder
                     ['Se reduce a la mitad', 0], ['Se mantiene', 0], ['Aumenta, cerca del doble si el resorte es elástico', 1], ['Desaparece', 0],
                 ]),
             ],
-            'TEST_CODIFICACION' => [
-                self::item('La instrucción dice: si el número es par, escribe A; si es impar, escribe B. Para 8 corresponde:', [
-                    ['A', 1], ['B', 0], ['AB', 0], ['Nada', 0],
-                ]),
-                self::item('Código: 1 = norte, 2 = este, 3 = sur, 4 = oeste. La secuencia 1, 2, 3 termina mirando al:', [
-                    ['Norte', 0], ['Este', 0], ['Sur', 1], ['Oeste', 0],
-                ]),
-                self::item('Regla: cada letra avanza un lugar en el abecedario. CASA se convierte en:', [
-                    ['DBTB', 1], ['BZRZ', 0], ['CASA', 0], ['DBSA', 0],
-                ]),
-                self::item('Si lees de derecha a izquierda y omites las vocales, de «DATO» queda:', [
-                    ['TD', 1], ['DT', 0], ['OTAD', 0], ['A', 0],
-                ]),
-                self::item('Un contador empieza en 0. Sumas 3, restas 1 y sumas 3. El valor final es:', [
-                    ['4', 0], ['5', 1], ['6', 0], ['7', 0],
-                ]),
-                self::item('La clave cambia el orden: primero la última letra, luego la primera, luego el resto. De «MESA» resulta:', [
-                    ['AMES', 1], ['ASEM', 0], ['SEAM', 0], ['MESA', 0],
-                ]),
-                self::item('Marca con 1 si las dos palabras riman y con 0 si no. «Peso» y «queso» reciben:', [
-                    ['0', 0], ['1', 1], ['2', 0], ['No se puede decidir', 0],
-                ]),
-                self::item('Sustituye cada dígito por su paridad: P par, I impar. 2047 queda:', [
-                    ['PIPI', 0], ['PPII', 1], ['IPPI', 0], ['IIPP', 0],
-                ]),
-                self::item('La regla borra la letra del medio. De «PLANO» queda:', [
-                    ['PLNO', 1], ['PANO', 0], ['PLAO', 0], ['LANO', 0],
-                ]),
-                self::item('Si A = 1, B = 2 y C = 3, la suma de «CAB» es:', [
-                    ['5', 0], ['6', 1], ['7', 0], ['4', 0],
-                ]),
-                self::item('Repites el símbolo solo cuando el anterior fue un círculo. La serie ○ ■ ○ produce como siguiente marca, si la regla pide copiar tras círculo:', [
-                    ['○', 1], ['■', 0], ['△', 0], ['Nada, la serie se detiene', 0],
-                ]),
-                self::item('Un condicional dice: si hay más de una X, escribe SÍ. En «XOX» corresponde:', [
-                    ['SÍ', 0], ['NO', 1], ['X', 0], ['OX', 0],
-                ]),
-            ],
             'TEST_LABERINTOS_VISOESPACIAL' => [
                 self::item('Estás mirando al norte. Giras a la derecha y luego a la derecha. Quedas mirando al:', [
                     ['Norte', 0], ['Este', 0], ['Sur', 1], ['Oeste', 0],

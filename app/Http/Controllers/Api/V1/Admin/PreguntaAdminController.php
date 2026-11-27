@@ -39,6 +39,7 @@ class PreguntaAdminController extends Controller
                     WHEN 'TEST_INTELIGENCIA' THEN 2
                     WHEN 'TEST_INTELIGENCIA_EMOCIONAL' THEN 3
                     WHEN 'TEST_LECTURA_COMPRENSIVA' THEN 4
+                    WHEN 'TEST_LECTURA_COMPRENSIVA_1' THEN 4
                     ELSE 5
                 END, id ASC
             ")
@@ -67,6 +68,7 @@ class PreguntaAdminController extends Controller
                         'TEST_INTELIGENCIA',
                         'TEST_INTELIGENCIA_EMOCIONAL',
                         'TEST_LECTURA_COMPRENSIVA',
+                        'TEST_LECTURA_COMPRENSIVA_1',
                     ], true),
                 ]),
                 'dimensiones' => $dimensiones->map(fn (DimensionEvaluada $d) => [
