@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Admin\BitacoraController;
 use App\Http\Controllers\Api\V1\Admin\CarreraController;
 use App\Http\Controllers\Api\V1\Admin\ConvocatoriaAdminController;
 use App\Http\Controllers\Api\V1\Admin\FacultadController;
@@ -22,6 +23,7 @@ use App\Http\Controllers\Api\V1\Evaluador\SeleccionController;
 use App\Http\Controllers\Api\V1\Publico\BienvenidaController;
 use App\Http\Controllers\Api\V1\Publico\RegistrarVisitaController;
 use App\Http\Controllers\Api\V1\RegistroEgresadoController;
+use App\Http\Middleware\RegistrarIntentoLogin;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -32,7 +34,7 @@ Route::prefix('v1')->group(function () {
         Route::post('visitas', RegistrarVisitaController::class)->name('visitas.store');
     });
 
-    Route::post('auth/login', [AutenticacionController::class, 'login'])->middleware('throttle:login')->name('auth.login');
+    Route::post('auth/login', [AutenticacionController::class, 'login'])->middleware(['throttle:login', RegistrarIntentoLogin::class])->name('auth.login');
     Route::post('registro/egresado', RegistroEgresadoController::class)->middleware('throttle:registro')->name('registro.egresado');
     Route::get('empresa/catalogo-solicitud', [RegistroSolicitudController::class, 'catalogo'])->name('empresa.catalogo');
     Route::post('empresa/registro-solicitud', [RegistroSolicitudController::class, 'store'])->middleware('throttle:registro')->name('empresa.registro');
@@ -139,6 +141,8 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::prefix('admin')->name('admin.')->group(function () {
+            Route::get('bitacora', BitacoraController::class)->middleware('permiso:bitacora.ver')->name('bitacora');
+
             Route::middleware('permiso:facultades.gestionar')->group(function () {
                 Route::apiResource('facultades', FacultadController::class)
                     ->parameters(['facultades' => 'facultad'])
