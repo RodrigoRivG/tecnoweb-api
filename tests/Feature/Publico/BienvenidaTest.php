@@ -89,6 +89,61 @@ class BienvenidaTest extends TestCase
         $porFacultad->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.proceso_id', $buscada->id);
     }
 
+    public function test_busqueda_de_convocatorias_coincide_por_nombre_codigo_carrera_y_facultad(): void
+    {
+        $facultad = Facultad::factory()->create(['nombre' => 'Facultad de Tecnología']);
+        $carrera = Carrera::factory()->for($facultad)->create(['nombre' => 'Ingeniería Civil']);
+        $abierta = $this->crearConvocatoria($carrera);
+        $abierta->update(['nombre' => 'Prácticas de verano']);
+        ConvocatoriaTalento::factory()->for($carrera)->cerrada()->create();
+        $this->crearConvocatoria(Carrera::factory()->create());
+
+        foreach (['PRACTICAS', 'ingenieria civil', 'tecnologia', mb_strtolower($abierta->codigo)] as $termino) {
+            $this->getJson(route('publico.convocatorias', ['q' => $termino]))
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.proceso_id', $abierta->id);
+        }
+    }
+
+    public function test_busqueda_trata_los_comodines_como_texto_literal(): void
+    {
+        $carrera = Carrera::factory()->create();
+        $buscada = $this->crearConvocatoria($carrera);
+        $buscada->update(['nombre' => 'Convocatoria 100%_real']);
+        $otra = $this->crearConvocatoria($carrera);
+        $otra->update(['nombre' => 'Convocatoria 100abc_real']);
+
+        $this->getJson(route('publico.convocatorias', ['q' => '100%_real']))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.proceso_id', $buscada->id);
+    }
+
+    public function test_busqueda_de_perfiles_encuentra_el_codigo_solo_si_el_perfil_es_publico(): void
+    {
+        $carrera = Carrera::factory()->create();
+        $proceso = $this->crearConvocatoria($carrera);
+        $publico = $this->publicarEnRanking($proceso, $this->crearEgresado($carrera), posicion: 1, consiente: true);
+        $privado = $this->publicarEnRanking($proceso, $this->crearEgresado($carrera), posicion: 2, consiente: false);
+
+        $this->getJson(route('publico.perfiles', ['q' => mb_strtolower($publico->codigo)]))
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.codigo_candidato', $publico->codigo);
+
+        $this->getJson(route('publico.perfiles', ['q' => $privado->codigo]))
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_busqueda_rechaza_terminos_de_mas_de_cien_caracteres(): void
+    {
+        $this->getJson(route('publico.convocatorias', ['q' => str_repeat('a', 101)]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('q');
+    }
+
     public function test_perfiles_muestra_solo_rankings_publicados_con_consentimiento_y_sin_datos_personales(): void
     {
         $carrera = Carrera::factory()->create();

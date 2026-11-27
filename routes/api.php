@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\Evaluador\RevisionEntrevistaController;
 use App\Http\Controllers\Api\V1\Evaluador\RevisionRequisitosController;
 use App\Http\Controllers\Api\V1\Evaluador\SeleccionController;
 use App\Http\Controllers\Api\V1\Publico\BienvenidaController;
+use App\Http\Controllers\Api\V1\Publico\RegistrarVisitaController;
 use App\Http\Controllers\Api\V1\RegistroEgresadoController;
 use Illuminate\Support\Facades\Route;
 
@@ -28,6 +29,7 @@ Route::prefix('v1')->group(function () {
         Route::get('facultades', [BienvenidaController::class, 'facultades'])->name('facultades');
         Route::get('convocatorias', [BienvenidaController::class, 'convocatorias'])->name('convocatorias');
         Route::get('perfiles', [BienvenidaController::class, 'perfiles'])->name('perfiles');
+        Route::post('visitas', RegistrarVisitaController::class)->name('visitas.store');
     });
 
     Route::post('auth/login', [AutenticacionController::class, 'login'])->middleware('throttle:login')->name('auth.login');

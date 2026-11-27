@@ -33,6 +33,7 @@ class BienvenidaController extends Controller
     {
         $convocatorias = Proceso::query()
             ->convocatoriasAbiertas()
+            ->when($this->patronBusqueda($request), fn (Builder $query, string $patron) => $this->buscarConvocatorias($query, $patron))
             ->when($request->filled('carrera_id'), fn (Builder $query) => $query
                 ->whereHas('convocatoria', fn (Builder $convocatoria) => $convocatoria->where('carrera_id', $request->integer('carrera_id'))))
             ->when($request->filled('facultad_id'), fn (Builder $query) => $query
@@ -47,13 +48,46 @@ class BienvenidaController extends Controller
     public function perfiles(FiltroPublicoRequest $request): AnonymousResourceCollection
     {
         $perfiles = PerfilPublico::query()
+            ->when($this->patronBusqueda($request), fn (Builder $query, string $patron) => $query->whereLike('codigo_candidato', $patron))
             ->when($request->filled('facultad_id'), fn (Builder $query) => $query->where('facultad_id', $request->integer('facultad_id')))
             ->when($request->filled('carrera_id'), fn (Builder $query) => $query->where('carrera_id', $request->integer('carrera_id')))
             ->when($request->boolean('solo_top'), fn (Builder $query) => $query->where('es_top', true))
             ->orderBy('carrera')
             ->orderBy('posicion')
-            ->paginate(15);
+            ->orderBy('ranking_id')
+            ->paginate(15)
+            ->appends($request->safe()->except('page'));
 
         return PerfilPublicoResource::collection($perfiles);
+    }
+
+    private function buscarConvocatorias(Builder $query, string $patron): Builder
+    {
+        return $query->where(function (Builder $coincidencias) use ($patron): void {
+            $this->coincidenciaNombre($coincidencias, $patron)
+                ->orWhereLike('codigo', $patron)
+                ->orWhereHas('convocatoria.carrera', fn (Builder $carrera) => $this->coincidenciaNombre($carrera, $patron))
+                ->orWhereHas('convocatoria.carrera.facultad', fn (Builder $facultad) => $this->coincidenciaNombre($facultad, $patron));
+        });
+    }
+
+    private function coincidenciaNombre(Builder $query, string $patron): Builder
+    {
+        return $query->whereRaw("translate(lower(nombre), 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunaeiouun') like ?", [$patron]);
+    }
+
+    private function patronBusqueda(FiltroPublicoRequest $request): ?string
+    {
+        $termino = trim((string) $request->validated('q'));
+
+        if ($termino === '') {
+            return null;
+        }
+
+        $normalizado = strtr(mb_strtolower($termino), [
+            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+        ]);
+
+        return '%'.addcslashes($normalizado, '\\%_').'%';
     }
 }
