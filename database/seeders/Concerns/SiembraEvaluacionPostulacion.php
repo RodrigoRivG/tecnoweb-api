@@ -3,13 +3,16 @@
 namespace Database\Seeders\Concerns;
 
 use App\Actions\Evaluacion\AsignarInstrumentosPostulacion;
+use App\Actions\Evaluacion\AvanzarEtapaTrasResultados;
 use App\Actions\Evaluacion\CalificarEntrevista;
 use App\Actions\Evaluacion\FinalizarIntentoPrueba;
 use App\Actions\Evaluacion\GuardarRespuestaIntento;
 use App\Actions\Evaluacion\IniciarIntentoPrueba;
 use App\Enums\EstadoEtapa;
+use App\Enums\EstadoPostulacion;
 use App\Models\AsignacionPrueba;
 use App\Models\IntentoPrueba;
+use App\Models\OpcionPregunta;
 use App\Models\Postulacion;
 use App\Models\Pregunta;
 use App\Models\ProcesoPrueba;
@@ -37,9 +40,9 @@ trait SiembraEvaluacionPostulacion
     }
 
     /**
-     * @param  Collection<int, \App\Models\OpcionPregunta>  $opciones
+     * @param  Collection<int, OpcionPregunta>  $opciones
      */
-    protected function opcionPorCalidad(Collection $opciones, float $calidad): ?\App\Models\OpcionPregunta
+    protected function opcionPorCalidad(Collection $opciones, float $calidad): ?OpcionPregunta
     {
         $ordenadas = $opciones->sortByDesc('puntaje')->values();
         if ($ordenadas->isEmpty()) {
@@ -123,8 +126,21 @@ trait SiembraEvaluacionPostulacion
             $finalizar->handle($candidato, $intento);
         }
 
-        $etapaPsico->refresh();
-        $etapaPsico->update(['estado' => EstadoEtapa::Aprobada, 'finalizada_en' => now()]);
+        app(AvanzarEtapaTrasResultados::class)->reconciliarPostulacion($postulacion->fresh());
+    }
+
+    protected function psicologicaAprobada(Postulacion $postulacion): bool
+    {
+        $postulacion->refresh();
+        if ($postulacion->estado === EstadoPostulacion::NoAprobada) {
+            return false;
+        }
+
+        $etapa = $postulacion->etapas()
+            ->whereHas('procesoEtapa.etapa', fn ($q) => $q->where('codigo', 'EVALUACION_PSICOLOGICA'))
+            ->first();
+
+        return $etapa?->estado === EstadoEtapa::Aprobada;
     }
 
     protected function completarEntrevista(

@@ -34,7 +34,7 @@ class BancoJerarquiaTest extends TestCase
             );
         }
 
-        foreach (['16PF_FORMA_A', '16PF_FORMA_B', 'ES_USTED_MUY_HABIL', 'DOMINOS_D48', 'RAVEN', 'TEST_PURDUE_NO_VERBAL', 'TEST_PURDUE_NO_VERBAL_FORMA_B', 'TMMS_24', 'TEST_HABILIDADES_BLANDAS', 'TEST_APTITUD_MECANICA', 'TEST_CODIFICACION', 'TEST_LABERINTOS_VISOESPACIAL'] as $codigo) {
+        foreach (['16PF_FORMA_A', '16PF_FORMA_B', 'ES_USTED_MUY_HABIL', 'DOMINOS_D48', 'RAVEN', 'TEST_PURDUE_NO_VERBAL', 'TEST_PURDUE_NO_VERBAL_FORMA_B', 'TEST_HABILIDADES_BLANDAS', 'TEST_APTITUD_MECANICA', 'TEST_CODIFICACION', 'TEST_LABERINTOS_VISOESPACIAL'] as $codigo) {
             $this->assertNotNull(Prueba::query()->where('codigo', $codigo)->first(), $codigo);
         }
 

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Catalogos\ItemsTmms24;
 use App\Models\DimensionEvaluada;
 use App\Models\OpcionPregunta;
 use App\Models\Pregunta;
@@ -12,9 +13,24 @@ use Illuminate\Support\Facades\DB;
 class BancoPreguntasHabilidadesBlandasSeeder extends Seeder
 {
     /**
-     * Dimensiones oficiales de Medición de Habilidades Blandas para talento profesional.
+     * Test único: TMMS-24 (3 dimensiones) + competencias socioemocionales (5 dimensiones) = 8 y 49 ítems.
      */
     private const DIMENSIONES = [
+        'ATENCION_EMOCIONAL' => [
+            'nombre' => 'Atención emocional',
+            'orden' => 17,
+            'preguntas' => [],
+        ],
+        'CLARIDAD_EMOCIONAL' => [
+            'nombre' => 'Claridad emocional',
+            'orden' => 18,
+            'preguntas' => [],
+        ],
+        'REPARACION_EMOCIONAL' => [
+            'nombre' => 'Reparación emocional',
+            'orden' => 19,
+            'preguntas' => [],
+        ],
         'COMUNICACION_ASERTIVA' => [
             'nombre' => 'Comunicación asertiva',
             'orden' => 20,
@@ -72,9 +88,6 @@ class BancoPreguntasHabilidadesBlandasSeeder extends Seeder
         ],
     ];
 
-    /**
-     * Escala Likert de 5 puntos (1 a 5).
-     */
     private const OPCIONES_LIKERT = [
         ['etiqueta' => '1', 'texto' => 'Totalmente en desacuerdo', 'puntaje' => '1.00'],
         ['etiqueta' => '2', 'texto' => 'En desacuerdo', 'puntaje' => '2.00'],
@@ -83,14 +96,24 @@ class BancoPreguntasHabilidadesBlandasSeeder extends Seeder
         ['etiqueta' => '5', 'texto' => 'Totalmente de acuerdo', 'puntaje' => '5.00'],
     ];
 
+    /**
+     * Escala TMMS (misma redacción que el instrumento original).
+     */
+    private const OPCIONES_LIKERT_TMMS = [
+        ['etiqueta' => '1', 'texto' => 'Nada de acuerdo', 'puntaje' => '1.00'],
+        ['etiqueta' => '2', 'texto' => 'Algo de acuerdo', 'puntaje' => '2.00'],
+        ['etiqueta' => '3', 'texto' => 'Bastante de acuerdo', 'puntaje' => '3.00'],
+        ['etiqueta' => '4', 'texto' => 'Muy de acuerdo', 'puntaje' => '4.00'],
+        ['etiqueta' => '5', 'texto' => 'Totalmente de acuerdo', 'puntaje' => '5.00'],
+    ];
+
     public function run(): void
     {
         $prueba = Prueba::query()->where('codigo', 'TEST_HABILIDADES_BLANDAS')->firstOrFail();
 
-        $this->command?->info("Poblando banco de preguntas para la prueba [{$prueba->codigo}] (ID: {$prueba->id})...");
+        $this->command?->info("Poblando Habilidades blandas [{$prueba->codigo}] (ID: {$prueba->id})…");
 
-        DB::transaction(function () use ($prueba) {
-            // 1. Asegurar la existencia de las 5 dimensiones en talento.dimension_evaluada
+        DB::transaction(function () use ($prueba): void {
             $dimensionesIds = [];
             foreach (self::DIMENSIONES as $codigo => $datos) {
                 $dim = DimensionEvaluada::query()->updateOrCreate(
@@ -104,42 +127,128 @@ class BancoPreguntasHabilidadesBlandasSeeder extends Seeder
                 $dimensionesIds[$codigo] = $dim->id;
             }
 
-            // 2. Limpiar preguntas previas de esta prueba (en cascada limpia opciones)
-            Pregunta::query()->where('prueba_id', $prueba->id)->delete();
+            $totalEsperado = 49;
+            $actual = Pregunta::query()->where('prueba_id', $prueba->id)->count();
+            $referenciada = DB::table('talento.respuesta_intento as r')
+                ->join('talento.pregunta as p', 'r.pregunta_id', '=', 'p.id')
+                ->where('p.prueba_id', $prueba->id)
+                ->exists();
 
-            // 3. Crear las 25 preguntas y sus opciones Likert
+            if ($actual === $totalEsperado) {
+                $this->actualizarMetadatosPrueba($prueba);
+
+                return;
+            }
+
+            if ($referenciada && $actual === 25) {
+                Pregunta::query()
+                    ->where('prueba_id', $prueba->id)
+                    ->orderByDesc('orden')
+                    ->each(fn (Pregunta $pregunta) => $pregunta->update(['orden' => $pregunta->orden + 24]));
+
+                $nroOrden = 1;
+                foreach (ItemsTmms24::afirmaciones() as $item) {
+                    $this->crearPreguntaLikert(
+                        $prueba->id,
+                        $dimensionesIds[$item['dimension']],
+                        $nroOrden++,
+                        $item['texto'],
+                        self::OPCIONES_LIKERT_TMMS,
+                    );
+                }
+
+                $this->actualizarMetadatosPrueba($prueba);
+                $this->command?->info('✓ Se antepusieron 24 ítems TMMS al banco existente (25 → 49).');
+
+                return;
+            }
+
+            if ($referenciada) {
+                $this->command?->warn("Hay respuestas en el banco ({$actual} ítems); no se borra. En desarrollo: migrate:fresh --seed o vaciar intentos antes de resembrar.");
+
+                return;
+            }
+
+            $preguntasIds = Pregunta::query()->where('prueba_id', $prueba->id)->pluck('id');
+            if ($preguntasIds->isNotEmpty()) {
+                DB::table('talento.respuesta_intento')->whereIn('pregunta_id', $preguntasIds)->delete();
+                Pregunta::query()->where('prueba_id', $prueba->id)->delete();
+            }
+
             $nroOrden = 1;
+
+            foreach (ItemsTmms24::afirmaciones() as $item) {
+                $this->crearPreguntaLikert(
+                    $prueba->id,
+                    $dimensionesIds[$item['dimension']],
+                    $nroOrden++,
+                    $item['texto'],
+                    self::OPCIONES_LIKERT_TMMS,
+                );
+            }
+
             foreach (self::DIMENSIONES as $codigoDim => $datos) {
+                if ($datos['preguntas'] === []) {
+                    continue;
+                }
+
                 $dimId = $dimensionesIds[$codigoDim];
-
                 foreach ($datos['preguntas'] as $enunciado) {
-                    $pregunta = Pregunta::query()->create([
-                        'prueba_id' => $prueba->id,
-                        'tipo_prueba' => 'TEST',
-                        'dimension_id' => $dimId,
-                        'orden' => $nroOrden++,
-                        'enunciado' => $enunciado,
-                        'imagen_archivo_id' => null,
-                    ]);
-
-                    $opcionesData = [];
-                    foreach (self::OPCIONES_LIKERT as $opc) {
-                        $opcionesData[] = [
-                            'pregunta_id' => $pregunta->id,
-                            'etiqueta' => $opc['etiqueta'],
-                            'texto' => $opc['texto'],
-                            'puntaje' => $opc['puntaje'],
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ];
-                    }
-
-                    OpcionPregunta::query()->insert($opcionesData);
+                    $this->crearPreguntaLikert(
+                        $prueba->id,
+                        $dimId,
+                        $nroOrden++,
+                        $enunciado,
+                        self::OPCIONES_LIKERT,
+                    );
                 }
             }
+
+            $this->actualizarMetadatosPrueba($prueba);
         });
 
         $totalPreguntas = Pregunta::where('prueba_id', $prueba->id)->count();
-        $this->command?->info("¡Banco poblado con éxito! Se registraron {$totalPreguntas} preguntas de Habilidades Blandas.");
+        $this->command?->info("✓ {$totalPreguntas} preguntas (8 dimensiones) en TEST_HABILIDADES_BLANDAS.");
+    }
+
+    /**
+     * @param  list<array{etiqueta: string, texto: string, puntaje: string}>  $opciones
+     */
+    private function crearPreguntaLikert(int $pruebaId, int $dimensionId, int $orden, string $enunciado, array $opciones): void
+    {
+        $pregunta = Pregunta::query()->create([
+            'prueba_id' => $pruebaId,
+            'tipo_prueba' => 'TEST',
+            'dimension_id' => $dimensionId,
+            'orden' => $orden,
+            'enunciado' => $enunciado,
+            'imagen_archivo_id' => null,
+        ]);
+
+        $opcionesData = [];
+        foreach ($opciones as $opc) {
+            $opcionesData[] = [
+                'pregunta_id' => $pregunta->id,
+                'etiqueta' => $opc['etiqueta'],
+                'texto' => $opc['texto'],
+                'puntaje' => $opc['puntaje'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        OpcionPregunta::query()->insert($opcionesData);
+    }
+
+    private function actualizarMetadatosPrueba(Prueba $prueba): void
+    {
+        $total = Pregunta::query()->where('prueba_id', $prueba->id)->count();
+        $prueba->update([
+            'nombre' => 'Habilidades blandas',
+            'descripcion' => 'Cuestionario de 49 preguntas en 8 dimensiones (inteligencia emocional y competencias socioemocionales).',
+            'tiempo_limite_seg' => 2100,
+            'limite_preguntas' => $total,
+            'activa' => true,
+        ]);
     }
 }

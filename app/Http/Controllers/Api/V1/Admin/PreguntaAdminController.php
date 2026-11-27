@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Actions\Banco\PublicarLibro;
+use App\Catalogos\LibrosPrueba;
 use App\Enums\FamiliaPrueba;
 use App\Enums\TipoPrueba;
 use App\Models\Carrera;
@@ -30,9 +31,11 @@ class PreguntaAdminController extends Controller
      */
     public function catalogoPruebas(): JsonResponse
     {
-        $pruebas = Prueba::query()
-            ->where('tipo', TipoPrueba::Test)
-            ->withCount('preguntas')
+        $pruebas = LibrosPrueba::aplicarFiltroBancoVisible(
+            Prueba::query()
+                ->where('tipo', TipoPrueba::Test)
+                ->withCount('preguntas'),
+        )
             ->orderByRaw("
                 CASE codigo
                     WHEN 'TEST_PERSONALIDAD' THEN 1
@@ -93,11 +96,13 @@ class PreguntaAdminController extends Controller
      */
     public function jerarquia(): JsonResponse
     {
-        $libros = Prueba::query()
-            ->where('tipo', TipoPrueba::Test)
-            ->with(['carreras:id,nombre'])
-            ->withCount('preguntas')
-            ->orderBy('codigo')
+        $libros = LibrosPrueba::aplicarFiltroBancoVisible(
+            Prueba::query()
+                ->where('tipo', TipoPrueba::Test)
+                ->with(['carreras:id,nombre'])
+                ->withCount('preguntas')
+                ->orderBy('codigo'),
+        )
             ->get()
             ->groupBy(fn (Prueba $prueba) => $prueba->familia?->value);
 

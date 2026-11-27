@@ -10,9 +10,9 @@ class EstudiantesPruebaSeeder extends Seeder
 {
     use SiembraPostulacionEgresado;
 
-  /**
-   * Candidatos en distintas fases del embudo (5 a 8) sobre Ingeniería de Sistemas.
-   */
+    /**
+     * Candidatos en distintas fases del embudo (5 a 8) sobre Ingeniería de Sistemas.
+     */
     public function run(): void
     {
         $this->seedCandidatosEgresados(self::candidatosEmbudoPorFases());

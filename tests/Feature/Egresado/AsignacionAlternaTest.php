@@ -24,13 +24,13 @@ class AsignacionAlternaTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_habilidades_blandas_rotan_entre_postulantes(): void
+    public function test_habilidades_blandas_asignan_el_test_unificado(): void
     {
         $carrera = Carrera::factory()->for(Facultad::factory()->state(['ppa_minimo' => '51.00']))->create();
         $proceso = $this->crearConvocatoria($carrera);
 
-        $this->conPregunta(Prueba::query()->where('codigo', 'TMMS_24')->firstOrFail());
-        $this->conPregunta(Prueba::query()->where('codigo', 'TEST_HABILIDADES_BLANDAS')->firstOrFail());
+        $libroUnificado = Prueba::query()->where('codigo', 'TEST_HABILIDADES_BLANDAS')->firstOrFail();
+        $this->conPregunta($libroUnificado);
 
         $etapa = ProcesoEtapa::query()
             ->where('proceso_id', $proceso->id)
@@ -38,7 +38,7 @@ class AsignacionAlternaTest extends TestCase
             ->firstOrFail();
 
         $etapa->pruebas()->create([
-            'prueba_id' => Prueba::query()->where('codigo', 'TMMS_24')->value('id'),
+            'prueba_id' => $libroUnificado->id,
             'modo_asignacion' => ModoAsignacion::Alterna,
             'peso' => 12,
             'umbral_origen' => UmbralOrigen::Fijo,
@@ -68,7 +68,8 @@ class AsignacionAlternaTest extends TestCase
             ->pluck('prueba_id');
 
         $this->assertCount(2, $blandas);
-        $this->assertNotSame($blandas[0], $blandas[1]);
+        $this->assertSame($libroUnificado->id, $blandas[0]);
+        $this->assertSame($libroUnificado->id, $blandas[1]);
     }
 
     public function test_habilidad_especifica_asigna_un_libro_y_rota(): void

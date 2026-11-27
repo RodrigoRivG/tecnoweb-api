@@ -3,9 +3,10 @@
 namespace Database\Seeders\Concerns;
 
 use App\Actions\Evaluacion\AsignarInstrumentosPostulacion;
+use App\Actions\Evaluacion\AvanzarEtapaTrasResultados;
+use App\Actions\Evaluacion\CalcularRankingSeleccion;
 use App\Actions\Evaluacion\CalificarAnalisisCv;
 use App\Actions\Evaluacion\CalificarEntrevista;
-use App\Actions\Evaluacion\CalcularRankingSeleccion;
 use App\Actions\Evaluacion\FinalizarIntentoPrueba;
 use App\Actions\Evaluacion\GuardarRespuestaIntento;
 use App\Actions\Evaluacion\IniciarIntentoPrueba;
@@ -18,24 +19,23 @@ use App\Enums\TipoConsentimiento;
 use App\Models\Archivo;
 use App\Models\AsignacionPrueba;
 use App\Models\Carrera;
-use App\Models\IntentoPrueba;
 use App\Models\ParametroSistema;
 use App\Models\Postulacion;
 use App\Models\Pregunta;
 use App\Models\Proceso;
 use App\Models\ProcesoPrueba;
-use App\Models\RespuestaIntento;
 use App\Models\ResultadoPrueba;
 use App\Models\Rol;
 use App\Models\RubricaCriterio;
 use App\Models\Usuario;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 trait SiembraPostulacionEgresado
 {
+    use SiembraEvaluacionPostulacion;
+
     /**
      * @param  list<array<string, mixed>>  $candidatos
      */
@@ -233,7 +233,14 @@ trait SiembraPostulacionEgresado
                 }
                 $finalizarIntento->handle($usuario, $intento);
             }
-            $etapaPsico->update(['estado' => EstadoEtapa::Aprobada, 'finalizada_en' => now()]);
+
+            app(AvanzarEtapaTrasResultados::class)->reconciliarPostulacion($postulacion->refresh());
+
+            if ($postulacion->estado === EstadoPostulacion::NoAprobada) {
+                $this->command?->info("   -> Postulación #{$postulacion->id}: descartada en evaluación psicológica (umbrales).");
+
+                continue;
+            }
 
             if (isset($etapas['HABILIDADES_BLANDAS'])) {
                 $etapaBlandas = $etapas['HABILIDADES_BLANDAS'];
@@ -243,8 +250,8 @@ trait SiembraPostulacionEgresado
 
                 if ($fase === 5) {
                     $this->limpiarIntento($postulacion->id, $ppBlandas->id);
-                $etapaBlandas->update(['estado' => EstadoEtapa::Pendiente, 'iniciada_en' => now(), 'finalizada_en' => null]);
-                $this->command?->info("   -> Postulación #{$postulacion->id} en FASE 5 (habilidades blandas pendientes).");
+                    $etapaBlandas->update(['estado' => EstadoEtapa::Pendiente, 'iniciada_en' => now(), 'finalizada_en' => null]);
+                    $this->command?->info("   -> Postulación #{$postulacion->id} en FASE 5 (habilidades blandas pendientes).");
 
                     continue;
                 }
@@ -338,41 +345,5 @@ trait SiembraPostulacionEgresado
             app(CalcularRankingSeleccion::class)->handle($proceso);
             $this->command?->info("Ranking actualizado para proceso #{$proceso->id} ({$proceso->nombre}).");
         }
-    }
-
-    protected function limpiarIntento(int $postulacionId, int $procesoPruebaId): void
-    {
-        $intentoPrevio = IntentoPrueba::where('postulacion_id', $postulacionId)
-            ->where('proceso_prueba_id', $procesoPruebaId)
-            ->first();
-
-        if (! $intentoPrevio) {
-            return;
-        }
-
-        RespuestaIntento::where('intento_id', $intentoPrevio->id)->delete();
-        ResultadoPrueba::where('intento_id', $intentoPrevio->id)->delete();
-        $intentoPrevio->delete();
-    }
-
-    /**
-     * @param  Collection<int, \App\Models\OpcionPregunta>  $opciones
-     */
-    protected function opcionPorCalidad(Collection $opciones, float $calidad): ?\App\Models\OpcionPregunta
-    {
-        $ordenadas = $opciones->sortByDesc('puntaje')->values();
-        if ($ordenadas->isEmpty()) {
-            return null;
-        }
-
-        $calidad = max(0.0, min(1.0, $calidad));
-        $indice = match (true) {
-            $calidad >= 0.92 => 0,
-            $calidad >= 0.78 => min(1, $ordenadas->count() - 1),
-            $calidad >= 0.62 => min(2, $ordenadas->count() - 1),
-            default => $ordenadas->count() - 1,
-        };
-
-        return $ordenadas[$indice];
     }
 }

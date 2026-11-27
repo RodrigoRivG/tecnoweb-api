@@ -11,7 +11,10 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
-     * Seed the application's database.
+     * Seed del catálogo y bancos. Idempotente: re-ejecutable en servidor (--force).
+     *
+     * Producción: php artisan migrate --force && php artisan db:seed --force
+     * (DemoSeeder no corre en producción.)
      */
     public function run(): void
     {
@@ -19,12 +22,12 @@ class DatabaseSeeder extends Seeder
         $this->call(PermisoSeeder::class);
         $this->call(BancoPreguntasSeeder::class);
         $this->call(BancoPreguntasInteligenciaSeeder::class);
-        $this->call(BancoPreguntasEmocionalSeeder::class);
         $this->call(BancoPreguntasLecturaSeeder::class);
         $this->call(BancoPreguntasLecturaTest1Seeder::class);
         $this->call(BancoPreguntasPurdueSeeder::class);
         $this->call(BancoPreguntasPurdueFormaBSeeder::class);
         $this->call(BancoPreguntasHabilidadesBlandasSeeder::class);
+        $this->call(BancoPreguntasEmocionalSeeder::class);
         $this->call(BancoPreguntas16PfFormaBSeeder::class);
         $this->call(BancoPreguntasDominosSeeder::class);
         $this->call(BancoPreguntasRavenSeeder::class);

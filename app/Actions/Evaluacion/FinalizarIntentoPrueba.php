@@ -47,6 +47,14 @@ class FinalizarIntentoPrueba
                 'finalizado_en' => now(),
             ]);
 
+            $respondidas = $intento->respuestas()->whereNotNull('opcion_id')->count();
+            $totalEsperadas = (int) ($prueba->limite_preguntas
+                ?? Pregunta::query()->where('prueba_id', $prueba->id)->count());
+            if ($totalEsperadas <= 0) {
+                $totalEsperadas = max($respondidas, 1);
+            }
+            $bateriaCompleta = $respondidas >= $totalEsperadas;
+
             // 2. Calcular puntaje máximo posible de las preguntas asignadas a este intento
             $preguntasAsignadasIds = $intento->respuestas()->pluck('pregunta_id');
 
@@ -123,13 +131,21 @@ class FinalizarIntentoPrueba
                 }
 
                 // Escala de decatipos estándar 16PF (1 a 10):
-                // Si respondió preguntas de esta dimensión, se calcula según su desempeño.
-                // Si aún no respondió ninguna de este factor, se sitúa en la norma neutra poblacional (5.5).
-                if ($puntosMaximosDim > 0) {
+                // Solo si hay respuestas en el factor; si la batería está incompleta, no rellenamos con 5.5.
+                if ($puntosMaximosDim <= 0) {
+                    if ($bateriaCompleta) {
+                        $decatipo = 5.50;
+                    } else {
+                        ResultadoDimension::query()
+                            ->where('resultado_prueba_id', $resultado->id)
+                            ->where('dimension_id', $dimId)
+                            ->delete();
+
+                        continue;
+                    }
+                } else {
                     $ratio = $puntosObtenidosDim / $puntosMaximosDim;
                     $decatipo = round(1.0 + ($ratio * 9.0), 2);
-                } else {
-                    $decatipo = 5.50;
                 }
 
                 $decatipo = max(1.0, min(10.0, $decatipo));
@@ -145,6 +161,12 @@ class FinalizarIntentoPrueba
                     ]
                 );
             }
+
+            $resultado->setRelation('progreso', (object) [
+                'respondidas' => $respondidas,
+                'total' => $totalEsperadas,
+                'completa' => $bateriaCompleta,
+            ]);
 
             app(AvanzarEtapaTrasResultados::class)->handle($postulacion, $procesoPrueba->procesoEtapa);
 

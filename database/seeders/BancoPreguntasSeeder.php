@@ -1902,7 +1902,11 @@ class BancoPreguntasSeeder extends Seeder
             ];
 
             // Limpiar preguntas previas de la prueba para permitir re-ejecución limpia
-            Pregunta::where('prueba_id', $pruebaPersonalidad->id)->delete();
+            $preguntasAnteriores = Pregunta::query()->where('prueba_id', $pruebaPersonalidad->id)->pluck('id');
+            if ($preguntasAnteriores->isNotEmpty()) {
+                DB::table('talento.respuesta_intento')->whereIn('pregunta_id', $preguntasAnteriores)->delete();
+                Pregunta::query()->where('prueba_id', $pruebaPersonalidad->id)->delete();
+            }
 
             foreach ($preguntas16PF as $item) {
                 $dimensionId = $dimensiones[$item['dimension']] ?? null;

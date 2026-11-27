@@ -24,7 +24,7 @@ class CandidatosEmpresaCompletosSeeder extends Seeder
 
         $this->command?->info('Generando solicitudes de empresa con candidatos completos…');
 
-        $this->seedSolicitudesEmpresaCompletas(self::solicitudes());
+        $this->seedSolicitudesEmpresa(self::solicitudes());
 
         $this->command?->info("\nListo. Candidatos externos: externo123 · Contactos empresa: Empresa1234");
     }

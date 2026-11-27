@@ -93,6 +93,13 @@ class CatalogoSeeder extends Seeder
                 );
             }
 
+            Prueba::query()
+                ->whereIn('codigo', LibrosPrueba::codigosRetiradosDelBanco())
+                ->update([
+                    'activa' => false,
+                    'es_plantilla' => false,
+                ]);
+
             $pruebaCv = Prueba::query()->where('codigo', 'CV_ANALISIS')->valueOrFail('id');
             DB::table('rubrica_criterio')->upsert(
                 collect(['Formación', 'Experiencia', 'Habilidades', 'Presentación'])

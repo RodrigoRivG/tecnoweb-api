@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use Database\Seeders\Concerns\UsuarioSemillaSistema;
 use App\Models\Archivo;
 use App\Models\OpcionPregunta;
 use App\Models\Pregunta;
@@ -103,7 +104,7 @@ class BancoPreguntasPurdueFormaBSeeder extends Seeder
                             'mime_type' => 'image/png',
                             'tamano_bytes' => File::size($rutaFisica),
                             'hash_sha256' => hash_file('sha256', $rutaFisica),
-                            'subido_por' => 1,
+                            'subido_por' => UsuarioSemillaSistema::id(),
                         ]
                     );
                     $archivoId = $archivo->id;

@@ -578,6 +578,8 @@ class EvaluacionController extends Controller
                 'seleccionada' => ($pp->id === $procesoPrueba->id),
                 'completada' => ($res !== null),
                 'aprobada' => (bool) ($res?->aprobada ?? false),
+                'puntaje_bruto' => $res ? (float) $res->puntaje_bruto : null,
+                'puntaje_maximo' => $res ? (float) $res->puntaje_maximo : null,
                 'puntaje_normalizado' => $res ? (float) $res->puntaje_normalizado : null,
                 'tiene_intento_activo' => ($int !== null),
             ];
@@ -605,9 +607,24 @@ class EvaluacionController extends Controller
             } elseif ($prueba->codigo === 'TEST_HABILIDADES_BLANDAS') {
                 $intentoFinalizado = IntentoPrueba::find($ultimoResultado->intento_id);
                 if ($intentoFinalizado) {
+                    $diagnosticoEmocional = $this->diagnosticoInteligenciaEmocional($intentoFinalizado, $postulacion);
                     $diagnosticoHabilidadesBlandas = $this->diagnosticoHabilidadesBlandas($intentoFinalizado);
                 }
             }
+        }
+
+        $progresoResultado = null;
+        if ($ultimoResultado) {
+            $intentoFinalizado = IntentoPrueba::find($ultimoResultado->intento_id);
+            $respondidasResultado = $intentoFinalizado
+                ? $intentoFinalizado->respuestas()->whereNotNull('opcion_id')->count()
+                : 0;
+            $totalEsperadasResultado = (int) ($prueba->limite_preguntas ?? $totalPreguntas);
+            $progresoResultado = [
+                'respondidas' => $respondidasResultado,
+                'total' => $totalEsperadasResultado,
+                'completa' => $totalEsperadasResultado > 0 && $respondidasResultado >= $totalEsperadasResultado,
+            ];
         }
 
         return response()->json([
@@ -646,6 +663,7 @@ class EvaluacionController extends Controller
                     'puntaje_normalizado' => $ultimoResultado->puntaje_normalizado,
                     'aprobada' => $ultimoResultado->aprobada,
                     'calificado_en' => $ultimoResultado->calificado_en,
+                    'progreso' => $progresoResultado,
                     'diagnostico_inteligencia' => $diagnosticoInteligencia,
                     'diagnostico_emocional' => $diagnosticoEmocional,
                     'diagnostico_lectura' => $diagnosticoLectura,
@@ -893,17 +911,31 @@ class EvaluacionController extends Controller
         } elseif (in_array($codigoPrueba, ['TEST_PURDUE_NO_VERBAL', 'TEST_PURDUE_NO_VERBAL_FORMA_B'], true)) {
             $diagnosticoPurdue = $this->diagnosticoPurdue((float) $resultado->puntaje_bruto, (float) $resultado->puntaje_maximo);
         } elseif ($codigoPrueba === 'TEST_HABILIDADES_BLANDAS') {
+            $diagnosticoEmocional = $this->diagnosticoInteligenciaEmocional($intento, $intento->postulacion);
             $diagnosticoHabilidadesBlandas = $this->diagnosticoHabilidadesBlandas($intento);
         }
 
+        $respondidas = $intento->respuestas()->whereNotNull('opcion_id')->count();
+        $prueba = $intento->procesoPrueba?->prueba;
+        $totalEsperadas = (int) ($prueba?->limite_preguntas
+            ?? Pregunta::query()->where('prueba_id', $prueba?->id)->count());
+        $bateriaCompleta = $totalEsperadas > 0 && $respondidas >= $totalEsperadas;
+
         return response()->json([
-            'mensaje' => 'Evaluación finalizada y calificada satisfactoriamente.',
+            'mensaje' => $bateriaCompleta
+                ? 'Evaluación finalizada y calificada satisfactoriamente.'
+                : 'Evaluación guardada parcialmente: faltan preguntas por responder.',
             'data' => [
                 'puntaje_bruto' => $resultado->puntaje_bruto,
                 'puntaje_maximo' => $resultado->puntaje_maximo,
                 'puntaje_normalizado' => $resultado->puntaje_normalizado,
                 'aprobada' => $resultado->aprobada,
                 'calificado_en' => $resultado->calificado_en,
+                'progreso' => [
+                    'respondidas' => $respondidas,
+                    'total' => $totalEsperadas,
+                    'completa' => $bateriaCompleta,
+                ],
                 'diagnostico_inteligencia' => $diagnosticoInteligencia,
                 'diagnostico_emocional' => $diagnosticoEmocional,
                 'diagnostico_lectura' => $diagnosticoLectura,
